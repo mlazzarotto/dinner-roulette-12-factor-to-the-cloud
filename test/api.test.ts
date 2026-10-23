@@ -41,3 +41,15 @@ test("GET /suggestion restituisce il ristorante più votato", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.restaurant.id, "sakura");
 });
+
+test("GET /health risponde ok", async () => {
+  const res = await request(app).get("/health");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "ok");
+});
+
+test("GET /version restituisce il COMMIT_SHA iniettato alla build", async () => {
+  process.env.COMMIT_SHA = "abc1234";
+  const res = await request(app).get("/version");
+  assert.equal(res.body.commit, "abc1234");
+});

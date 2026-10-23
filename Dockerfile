@@ -10,6 +10,8 @@ RUN npm run build
 
 FROM node:slim
 WORKDIR /app
+ARG COMMIT_SHA
+ENV COMMIT_SHA=$COMMIT_SHA
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist

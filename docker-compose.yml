@@ -15,7 +15,10 @@ services:
       retries: 10
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        COMMIT_SHA: ${COMMIT_SHA:-unknown}
     environment:
       DATABASE_URL: postgres://dinner:dinner@db:5432/dinner_roulette
     ports:

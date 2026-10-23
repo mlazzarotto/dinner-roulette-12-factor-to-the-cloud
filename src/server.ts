@@ -1,7 +1,6 @@
 import express from "express";
 import fs from "fs";
 import os from "os";
-import { execSync } from "child_process";
 import { v4 as uuid } from "uuid";
 import { Pool } from "pg";
 
@@ -85,9 +84,12 @@ export function startApp(
     res.json({ restaurant: winner, votes: winner.votes });
   });
 
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
   app.get("/version", (_req, res) => {
-    const commit = execSync("git rev-parse HEAD").toString().trim();
-    res.json({ commit });
+    res.json({ commit: process.env.COMMIT_SHA ?? "unknown" });
   });
 
   return app;
