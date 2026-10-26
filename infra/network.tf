@@ -140,6 +140,54 @@ resource "oci_core_network_security_group_security_rule" "endpoint_in_6443" {
   }
 }
 
+# Nodes register against the same endpoint. Without this the pool reports
+# "node(s) register timeout".
+resource "oci_core_network_security_group_security_rule" "endpoint_in_6443_nodes" {
+  network_security_group_id = oci_core_network_security_group.endpoint.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.nodes.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+
+  tcp_options {
+    destination_port_range {
+      min = 6443
+      max = 6443
+    }
+  }
+}
+
+# Kubelet ingress from the control plane, and VXLAN between nodes for Flannel.
+resource "oci_core_network_security_group_security_rule" "nodes_in_10250" {
+  network_security_group_id = oci_core_network_security_group.nodes.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.endpoint.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+
+  tcp_options {
+    destination_port_range {
+      min = 10250
+      max = 10250
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "nodes_in_vxlan" {
+  network_security_group_id = oci_core_network_security_group.nodes.id
+  direction                 = "INGRESS"
+  protocol                  = "17"
+  source                    = oci_core_network_security_group.nodes.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+
+  udp_options {
+    destination_port_range {
+      min = 4789
+      max = 4789
+    }
+  }
+}
+
 # The API server dials kubelets on 10250 for exec and logs.
 resource "oci_core_network_security_group_security_rule" "endpoint_egress_nodes" {
   network_security_group_id = oci_core_network_security_group.endpoint.id
