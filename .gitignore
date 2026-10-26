@@ -4,7 +4,7 @@ dist
 .idea
 .env
 
-# infra: never commit state, plans, rendered manifests or local overrides
+# infra: never commit state, plans and local overrides
 infra/.terraform/
 infra/.terraform.lock.hcl.bak
 infra/*.tfstate
@@ -12,7 +12,6 @@ infra/*.tfstate.*
 infra/tfplan
 infra/*.tfvars.bak
 infra/.secrets.env
-infra/k8s/rendered/
 infra/kubeconfig*
 *.pem
 *.key

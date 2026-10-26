@@ -1,4 +1,5 @@
-# The load balancer belongs to the ingress-nginx Service; `make up` sets its OCI annotations.
+# The load balancer belongs to the ingress-nginx Service; `make oke-up` sets its OCI annotations.
+# __OCIR_IMAGE__ is filled by `make oke-deploy`, which owns the image reference.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ingress.yaml
+images:
+  - name: __OCIR_IMAGE__
+    newName: dinner-roulette
+    newTag: latest
+patches:
+  - target:
+      kind: Deployment
+      name: app
+    path: patch.yaml

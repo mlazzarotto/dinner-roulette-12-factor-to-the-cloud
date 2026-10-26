@@ -1,4 +1,4 @@
-# db/init.sql arrives through the db-init ConfigMap, created by `make deploy`.
+# db/init.sql arrives through the db-init ConfigMap, created by `make oke-deploy` / `mk-deploy`.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -54,6 +54,8 @@ spec:
       spec:
         accessModes: ["ReadWriteOnce"]
         # No storageClassName: use the cluster default (oci-bv on OKE, standard on minikube).
+        # OCI rounds this up to its 50 GB block volume minimum, and volumeClaimTemplates
+        # cannot be changed afterwards.
         resources:
           requests:
             storage: 10Gi

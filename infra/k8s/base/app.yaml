@@ -1,4 +1,4 @@
-# Same as app-oke.yaml, minus the pull secret. Never: the image comes from `minikube image load`.
+# The image is set per environment: OCIR on OKE, the locally built tag on minikube.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,19 +14,23 @@ spec:
       labels:
         app: app
     spec:
+      imagePullSecrets:
+        - name: ocir
       initContainers:
+        # The app's Pool throws on the first query if the DB is not accepting yet.
         - name: wait-for-db
           image: docker.io/library/postgres:17
           command: ["sh", "-c", "until pg_isready -h db -U dinner -d dinner_roulette; do sleep 2; done"]
       containers:
         - name: app
-          image: dinner-roulette:latest
-          imagePullPolicy: Never
+          image: __OCIR_IMAGE__
+          imagePullPolicy: Always
           env:
             - name: DATABASE_URL
               value: postgres://dinner:dinner@db:5432/dinner_roulette
           ports:
             - containerPort: 8080
+          # /health is a static handler and passes with the DB down, so probe the socket.
           readinessProbe:
             tcpSocket:
               port: 8080

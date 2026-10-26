@@ -1,5 +1,5 @@
-# Placeholders are filled by `make manifests` from $ACME_EMAIL before applying.
-# The Cloudflare token Secret is created by `make up` from $CLOUDFLARE_API_TOKEN, never committed.
+# __ACME_EMAIL__ is filled by `make oke-up` before applying.
+# The Cloudflare token Secret is created by `make oke-up` from $CLOUDFLARE_API_TOKEN, never committed.
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:

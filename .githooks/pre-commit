@@ -6,7 +6,7 @@ staged=$(git diff --cached --name-only --diff-filter=ACM)
 
 if [ -n "$staged" ]; then
 	# 1. Never commit these paths, even if someone forces them in with `git add -f`.
-	blocked=$(printf '%s\n' "$staged" | grep -E '(^|/)\.secrets\.env$|(^|/)\.env$|\.tfstate(\.backup)?$|(^|/)kubeconfig|^infra/k8s/rendered/' || true)
+	blocked=$(printf '%s\n' "$staged" | grep -E '(^|/)\.secrets\.env$|(^|/)\.env$|\.tfstate(\.backup)?$|(^|/)kubeconfig' || true)
 	if [ -n "$blocked" ]; then
 		echo "pre-commit: refusing to commit local secrets or Terraform state:"
 		printf '%s\n' "$blocked"

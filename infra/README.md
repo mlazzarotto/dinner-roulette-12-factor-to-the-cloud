@@ -12,7 +12,7 @@ Create the reserved IP once and put its OCID in `prod.tfvars`:
 oci network public-ip create --lifetime RESERVED --compartment-id <compartment> --display-name dinner-lb
 ```
 
-Then copy `.secrets.example` to `.secrets.env` and fill it in: tenancy OCID, SSH public key, ACME email, Cloudflare token, `OCIR_IMAGE` and the registry credentials (`OCIR_USERNAME`, `OCIR_AUTH_TOKEN`). The last two are the same auth token as the `OCIR_AUTH_TOKEN` repository secret, and they create the `ocir` pull secret.
+Then copy `.secrets.example` to `.secrets.env` and fill it in: tenancy OCID, ACME email, Cloudflare token, `OCIR_IMAGE` and the registry credentials (`OCIR_USERNAME`, `OCIR_AUTH_TOKEN`). The SSH public key is optional. The last two are the same auth token as the `OCIR_AUTH_TOKEN` repository secret, and they create the `ocir` pull secret.
 
 In Cloudflare, point an A record for `dinner.lazzarotto.dev` at the reserved IP, DNS-only.
 
@@ -35,7 +35,7 @@ make oke-cidr CIDR=1.2.3.4/32
 
 It rewrites the value in `prod.tfvars` and applies, so the next `oke-up` does not revert it.
 
-`make oke-deploy` renders the manifests, creates the namespace and the pull secret, applies everything and waits for the rollout.
+`make oke-deploy` creates the namespace, the pull secret and the db-init ConfigMap, applies the kustomize overlay and waits for the rollout. The manifests live in `k8s/base`, with one overlay per environment in `k8s/overlays`.
 
 ## Local, with minikube
 
@@ -43,9 +43,10 @@ It rewrites the value in `prod.tfvars` and applies, so the next `oke-up` does no
 cd infra
 make mk-up               # minikube, ingress addon, build, load the image
 make mk-deploy
+make mk-smoke            # tunnels through a temporary port-forward
 ```
 
-`curl -H 'Host: dinner.local' http://$(minikube ip)/suggestion`, or add `dinner.local` to `/etc/hosts`. No TLS locally.
+`minikube ip` is not routable with the docker driver on macOS, so `mk-smoke` forwards the ingress controller locally. No TLS locally.
 
 ## What is created where
 
@@ -55,6 +56,6 @@ Port 80 is closed: cert-manager issues TLS through Cloudflare DNS-01, so the LB 
 
 ## Secrets
 
-Nothing secret is committed. `.secrets.env` and `infra/k8s/rendered/` are ignored. CI reads secrets `OCIR_AUTH_TOKEN`, `OCIR_USERNAME`, `KUBECONFIG_B64` and variables `OCIR_REGION`, `OCIR_NAMESPACE`.
+Nothing secret is committed. `.secrets.env` is ignored. CI reads secrets `OCIR_AUTH_TOKEN`, `OCIR_USERNAME`, `KUBECONFIG_B64` and variables `OCIR_REGION`, `OCIR_NAMESPACE`, and deploys with the same `make oke-deploy` target.
 
 `KUBECONFIG_B64` expires 24h after each `oke-up`.
