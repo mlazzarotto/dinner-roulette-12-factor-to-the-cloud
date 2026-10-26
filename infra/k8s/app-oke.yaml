@@ -1,0 +1,57 @@
+# The image is built by .github/workflows/build.yml and pulled from OCIR.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: dinner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      imagePullSecrets:
+        - name: ocir
+      initContainers:
+        # The app's Pool throws on the first query if the DB is not accepting yet.
+        - name: wait-for-db
+          image: postgres:17
+          command: ["sh", "-c", "until pg_isready -h db -U dinner -d dinner_roulette; do sleep 2; done"]
+      containers:
+        - name: app
+          image: __OCIR_IMAGE__
+          imagePullPolicy: Always
+          env:
+            - name: DATABASE_URL
+              value: postgres://dinner:dinner@db:5432/dinner_roulette
+          ports:
+            - containerPort: 8080
+          # /health is a static handler and passes with the DB down, so probe the socket.
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: dinner
+  labels:
+    app: app
+spec:
+  type: ClusterIP
+  selector:
+    app: app
+  ports:
+    - port: 80
+      targetPort: 8080

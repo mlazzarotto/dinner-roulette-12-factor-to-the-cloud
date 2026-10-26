@@ -1,0 +1,53 @@
+# Same as app-oke.yaml, minus the pull secret. Never: the image comes from `minikube image load`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: dinner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      initContainers:
+        - name: wait-for-db
+          image: postgres:17
+          command: ["sh", "-c", "until pg_isready -h db -U dinner -d dinner_roulette; do sleep 2; done"]
+      containers:
+        - name: app
+          image: dinner-roulette:latest
+          imagePullPolicy: Never
+          env:
+            - name: DATABASE_URL
+              value: postgres://dinner:dinner@db:5432/dinner_roulette
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: dinner
+  labels:
+    app: app
+spec:
+  type: ClusterIP
+  selector:
+    app: app
+  ports:
+    - port: 80
+      targetPort: 8080
