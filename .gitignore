@@ -10,6 +10,7 @@ infra/.terraform.lock.hcl.bak
 infra/*.tfstate
 infra/*.tfstate.*
 infra/tfplan
+infra/*.tfvars.bak
 infra/.secrets.env
 infra/k8s/rendered/
 infra/kubeconfig*
