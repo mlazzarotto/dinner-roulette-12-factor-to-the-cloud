@@ -47,12 +47,14 @@ apply: check-secrets ## Apply prod.tfvars without the full bootstrap
 oke-up: check-secrets ## Create the cluster, the addons and deploy (~20 min)
 	terraform init
 	terraform apply -var-file=prod.tfvars -auto-approve
+	rm -f $(CURDIR)/kubeconfig
 	oci ce cluster create-kubeconfig --cluster-id "$$(terraform output -raw cluster_id)" \
 		--file $(CURDIR)/kubeconfig --region "$$(terraform output -raw region)" --token-version 2.0.0
-	kubectl config rename-context "$$(terraform output -raw cluster_id)" oke
+	KUBECONFIG=$(CURDIR)/kubeconfig kubectl config rename-context \
+		"$$(KUBECONFIG=$(CURDIR)/kubeconfig kubectl config current-context)" oke
 	helm repo add jetstack https://charts.jetstack.io >/dev/null
 	helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/null
-	helm repo update >/dev/null
+	helm repo update jetstack ingress-nginx >/dev/null
 	helm upgrade --install cert-manager jetstack/cert-manager --version v1.17.1 \
 		--namespace cert-manager --create-namespace --set crds.enabled=true --kube-context oke --wait
 	# The LB annotations belong on the controller Service, which is what the CCM reads.
@@ -62,7 +64,7 @@ oke-up: check-secrets ## Create the cluster, the addons and deploy (~20 min)
 		--set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$$(terraform output -raw lb_nsg_id)" \
 		--set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$$(terraform output -raw lb_reserved_ip)"
 	kubectl --context oke wait --for=condition=established crd/clusterissuers.cert-manager.io --timeout=120s
-	kubectl --context oke -n cert-manager create secret generic cloudflare-api-token \
+	@kubectl --context oke -n cert-manager create secret generic cloudflare-api-token \
 		--from-literal=token="$$CLOUDFLARE_API_TOKEN" --dry-run=client -o yaml | kubectl --context oke apply -f -
 	$(MAKE) manifests
 	kubectl --context oke apply -f $(RENDERED)/clusterissuer.yaml
@@ -75,6 +77,11 @@ oke-deploy: ## Apply the manifests and wait for the app
 
 oke-status: ## Show pods, services, ingress, PVCs and certificates
 	$(MAKE) status ENV=oke
+
+# Usage: eval "$(make -C infra oke-env)"
+oke-env: ## Export KUBECONFIG and select the oke context for kubectl
+	@echo 'export KUBECONFIG="$(KUBECONFIG)"'
+	@echo 'kubectl config use-context oke >/dev/null'
 
 oke-smoke: ## Hit /suggestion over HTTPS
 	$(MAKE) smoke ENV=oke
@@ -104,6 +111,11 @@ mk-deploy: ## Apply the manifests and wait for the app
 
 mk-status: ## Show pods, services, ingress and PVCs
 	$(MAKE) status ENV=minikube
+
+# Usage: eval "$(make -C infra mk-env)"
+mk-env: ## Export KUBECONFIG and select the minikube context for kubectl
+	@echo 'export KUBECONFIG="$(KUBECONFIG)"'
+	@echo 'kubectl config use-context minikube >/dev/null'
 
 mk-smoke: ## Hit /suggestion on dinner.local
 	$(MAKE) smoke ENV=minikube
@@ -137,7 +149,7 @@ manifests:
 # The private image cannot be pulled without this. Idempotent, and it reads the registry
 # host from OCIR_IMAGE. Needs the dinner namespace to exist (db.yaml creates it).
 registry-secret: check-env check-registry
-	kubectl --context $(CONTEXT) -n dinner create secret docker-registry ocir \
+	@kubectl --context $(CONTEXT) -n dinner create secret docker-registry ocir \
 		--docker-server="$(OCIR_SERVER)" \
 		--docker-username="$(OCIR_USERNAME)" \
 		--docker-password="$(OCIR_AUTH_TOKEN)" \
@@ -153,8 +165,7 @@ ifeq ($(ENV),oke)
 	$(MAKE) manifests
 	# Namespace first: the pods need the pull secret before they are scheduled.
 	kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl --context oke apply -f -
-	$(MAKE) registry-secret ENV=oke
-	kubectl --context oke apply -f $(K8S)/db.yaml -f $(RENDERED)/app-oke.yaml -f $(K8S)/ingress-oke.yaml
+	$(MAKE) registry-secret ENV=oke	kubectl --context oke apply -f $(K8S)/db.yaml -f $(RENDERED)/app-oke.yaml -f $(K8S)/ingress-oke.yaml
 	$(MAKE) db-init ENV=oke
 	kubectl --context oke -n dinner rollout status deploy/app --timeout=180s
 else

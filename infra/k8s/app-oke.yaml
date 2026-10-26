@@ -19,7 +19,7 @@ spec:
       initContainers:
         # The app's Pool throws on the first query if the DB is not accepting yet.
         - name: wait-for-db
-          image: postgres:17
+          image: docker.io/library/postgres:17
           command: ["sh", "-c", "until pg_isready -h db -U dinner -d dinner_roulette; do sleep 2; done"]
       containers:
         - name: app

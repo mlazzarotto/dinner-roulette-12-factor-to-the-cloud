@@ -140,14 +140,14 @@ resource "oci_core_network_security_group_security_rule" "endpoint_in_6443" {
   }
 }
 
-# Nodes register against the same endpoint. Without this the pool reports
-# "node(s) register timeout".
+# Nodes register against the same endpoint, on 6443 and 12250. Without these the pool
+# reports "node(s) register timeout".
 resource "oci_core_network_security_group_security_rule" "endpoint_in_6443_nodes" {
   network_security_group_id = oci_core_network_security_group.endpoint.id
   direction                 = "INGRESS"
   protocol                  = "6"
-  source                    = oci_core_network_security_group.nodes.id
-  source_type               = "NETWORK_SECURITY_GROUP"
+  source                    = oci_core_subnet.private.cidr_block
+  source_type               = "CIDR_BLOCK"
 
   tcp_options {
     destination_port_range {
@@ -157,35 +157,36 @@ resource "oci_core_network_security_group_security_rule" "endpoint_in_6443_nodes
   }
 }
 
-# Kubelet ingress from the control plane, and VXLAN between nodes for Flannel.
-resource "oci_core_network_security_group_security_rule" "nodes_in_10250" {
-  network_security_group_id = oci_core_network_security_group.nodes.id
+resource "oci_core_network_security_group_security_rule" "endpoint_in_12250_nodes" {
+  network_security_group_id = oci_core_network_security_group.endpoint.id
   direction                 = "INGRESS"
   protocol                  = "6"
-  source                    = oci_core_network_security_group.endpoint.id
-  source_type               = "NETWORK_SECURITY_GROUP"
+  source                    = oci_core_subnet.private.cidr_block
+  source_type               = "CIDR_BLOCK"
 
   tcp_options {
     destination_port_range {
-      min = 10250
-      max = 10250
+      min = 12250
+      max = 12250
     }
   }
 }
 
-resource "oci_core_network_security_group_security_rule" "nodes_in_vxlan" {
+# The endpoint reaches the nodes on all TCP ports; the nodes talk to each other freely.
+resource "oci_core_network_security_group_security_rule" "nodes_in_endpoint" {
   network_security_group_id = oci_core_network_security_group.nodes.id
   direction                 = "INGRESS"
-  protocol                  = "17"
-  source                    = oci_core_network_security_group.nodes.id
-  source_type               = "NETWORK_SECURITY_GROUP"
+  protocol                  = "6"
+  source                    = oci_core_subnet.public.cidr_block
+  source_type               = "CIDR_BLOCK"
+}
 
-  udp_options {
-    destination_port_range {
-      min = 4789
-      max = 4789
-    }
-  }
+resource "oci_core_network_security_group_security_rule" "nodes_in_nodes" {
+  network_security_group_id = oci_core_network_security_group.nodes.id
+  direction                 = "INGRESS"
+  protocol                  = "all"
+  source                    = oci_core_subnet.private.cidr_block
+  source_type               = "CIDR_BLOCK"
 }
 
 # The API server dials kubelets on 10250 for exec and logs.
@@ -195,6 +196,23 @@ resource "oci_core_network_security_group_security_rule" "endpoint_egress_nodes"
   protocol                  = "all"
   destination               = oci_core_network_security_group.nodes.id
   destination_type          = "NETWORK_SECURITY_GROUP"
+}
+
+# The control plane calls the OCI APIs over 443. Without this the CCM cannot initialise
+# the node, which keeps the node.cloudprovider.kubernetes.io/uninitialized taint.
+resource "oci_core_network_security_group_security_rule" "endpoint_egress_https" {
+  network_security_group_id = oci_core_network_security_group.endpoint.id
+  direction                 = "EGRESS"
+  protocol                  = "6"
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+
+  tcp_options {
+    destination_port_range {
+      min = 443
+      max = 443
+    }
+  }
 }
 
 # Only allowed_source_cidr reaches the LB, only on 443. Port 80 stays closed: TLS is DNS-01.
