@@ -1,2 +1,32 @@
 #!/bin/sh
+# Runs on every commit. Blocks local secrets and state, then the test suite.
+# Enable once per clone: git config core.hooksPath .githooks
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -n "$staged" ]; then
+	# 1. Never commit these paths, even if someone forces them in with `git add -f`.
+	blocked=$(printf '%s\n' "$staged" | grep -E '(^|/)\.secrets\.env$|(^|/)\.env$|\.tfstate(\.backup)?$|(^|/)kubeconfig|^infra/k8s/rendered/' || true)
+	if [ -n "$blocked" ]; then
+		echo "pre-commit: refusing to commit local secrets or Terraform state:"
+		printf '%s\n' "$blocked"
+		exit 1
+	fi
+
+	# 2. Scan the staged files only, no verification (no network calls, and a revoked
+	#    token is still a leak). The workshop DSN in the manifests is not a secret.
+	if command -v trufflehog >/dev/null 2>&1; then
+		findings=$(printf '%s\n' "$staged" | tr '\n' '\0' \
+			| xargs -0 trufflehog filesystem --no-verification --json --no-color 2>/dev/null \
+			| grep -v 'postgres://dinner:dinner@db:5432' || true)
+		if [ -n "$findings" ]; then
+			echo "pre-commit: trufflehog found credentials in staged files:"
+			printf '%s\n' "$findings" | grep -oE '"DetectorName":"[^"]*"|"Raw":"[^"]*"|"File":"[^"]*"' | sed 's/^/  /'
+			exit 1
+		fi
+	else
+		echo "pre-commit: trufflehog not installed, skipping the secret scan"
+	fi
+fi
+
 npm test
