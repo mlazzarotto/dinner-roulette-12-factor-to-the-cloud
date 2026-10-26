@@ -2,7 +2,7 @@
 
 OKE cluster on Oracle Cloud, plus the manifests to run the app there or on minikube.
 
-The stack is created and destroyed around a workshop session: `make up` before, `make down` after. Only the reserved public IP and the OCIR images survive. Terraform state is local, in `infra/terraform.tfstate` and git-ignored: without it `make down` cannot run.
+The stack is created and destroyed around a workshop session: `oke-up` before, `oke-down` after. Only the reserved public IP and the OCIR images survive. Terraform state is local, in `infra/terraform.tfstate` and git-ignored: without it `oke-down` cannot run.
 
 ## One-time setup
 
@@ -21,40 +21,40 @@ In Cloudflare, point an A record for `dinner.lazzarotto.dev` at the reserved IP,
 ```bash
 cd infra
 
-make up                  # cluster, cert-manager, ingress-nginx, deploy (~15 min cold)
-make status ENV=oke      # pods, services, ingress, PVCs, certificates
-make smoke ENV=oke       # hits /suggestion over HTTPS
-make down                # workloads first, then destroy
+make oke-up              # cluster, cert-manager, ingress-nginx, deploy (~20 min cold)
+make oke-status          # pods, services, ingress, PVCs, certificates
+make oke-smoke           # hits /suggestion over HTTPS
+make oke-down            # workloads first, then destroy
 ```
 
 You are the only allowed source IP (`allowed_source_cidr`). When it changes:
 
 ```bash
-make allow-cidr CIDR=1.2.3.4/32
+make oke-cidr CIDR=1.2.3.4/32
 ```
 
-It rewrites the value in `prod.tfvars` and applies, so the next `make up` does not revert it.
+It rewrites the value in `prod.tfvars` and applies, so the next `oke-up` does not revert it.
 
-`make deploy ENV=oke` renders the manifests, creates the namespace and the pull secret, applies everything and waits for the rollout.
+`make oke-deploy` renders the manifests, creates the namespace and the pull secret, applies everything and waits for the rollout.
 
 ## Local, with minikube
 
 ```bash
 cd infra
 make mk-up               # minikube, ingress addon, build, load the image
-make deploy ENV=minikube
+make mk-deploy
 ```
 
 `curl -H 'Host: dinner.local' http://$(minikube ip)/suggestion`, or add `dinner.local` to `/etc/hosts`. No TLS locally.
 
 ## What is created where
 
-Terraform owns the VCN, the cluster and the node pool. The load balancer and the Postgres volume come from the OKE cloud-controller-manager and the CSI driver when the manifests are applied, which is why `make down` deletes the workloads first.
+Terraform owns the VCN, the cluster and the node pool. The load balancer and the Postgres volume come from the OKE cloud-controller-manager and the CSI driver when the manifests are applied, which is why `oke-down` deletes the workloads first.
 
-Port 80 is closed: cert-manager issues TLS through Cloudflare DNS-01, so the LB listens on 443 only, for your source IP. The LB itself is the ingress-nginx Service, configured by `make up`'s helm install (reserved IP, NSG, no security list management).
+Port 80 is closed: cert-manager issues TLS through Cloudflare DNS-01, so the LB listens on 443 only, for your source IP. The LB itself is the ingress-nginx Service, configured by `oke-up`'s helm install (reserved IP, NSG, no security list management).
 
 ## Secrets
 
 Nothing secret is committed. `.secrets.env` and `infra/k8s/rendered/` are ignored. CI reads secrets `OCIR_AUTH_TOKEN`, `OCIR_USERNAME`, `KUBECONFIG_B64` and variables `OCIR_REGION`, `OCIR_NAMESPACE`.
 
-`KUBECONFIG_B64` expires 24h after each `make up`.
+`KUBECONFIG_B64` expires 24h after each `oke-up`.
