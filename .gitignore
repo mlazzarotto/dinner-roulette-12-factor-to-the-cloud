@@ -3,3 +3,15 @@ logs
 dist
 .idea
 .env
+
+# infra: never commit state, plans, rendered manifests or local overrides
+infra/.terraform/
+infra/.terraform.lock.hcl.bak
+infra/*.tfstate
+infra/*.tfstate.*
+infra/tfplan
+infra/.secrets.env
+infra/k8s/rendered/
+infra/kubeconfig*
+*.pem
+*.key
