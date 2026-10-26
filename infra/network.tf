@@ -231,34 +231,22 @@ resource "oci_core_network_security_group_security_rule" "lb_in_443" {
   }
 }
 
+# The LB reaches the nodePorts and probes the node on 10256. A port range here
+# leaves the health check CRITICAL, and the LB then resets every connection.
 resource "oci_core_network_security_group_security_rule" "nodes_from_lb" {
   network_security_group_id = oci_core_network_security_group.nodes.id
   direction                 = "INGRESS"
-  protocol                  = "6"
+  protocol                  = "all"
   source                    = oci_core_network_security_group.lb.id
   source_type               = "NETWORK_SECURITY_GROUP"
-
-  tcp_options {
-    destination_port_range {
-      min = 30000
-      max = 32767
-    }
-  }
 }
 
 resource "oci_core_network_security_group_security_rule" "lb_egress_nodes" {
   network_security_group_id = oci_core_network_security_group.lb.id
   direction                 = "EGRESS"
-  protocol                  = "6"
+  protocol                  = "all"
   destination               = oci_core_network_security_group.nodes.id
   destination_type          = "NETWORK_SECURITY_GROUP"
-
-  tcp_options {
-    destination_port_range {
-      min = 30000
-      max = 32767
-    }
-  }
 }
 
 resource "oci_core_network_security_group_security_rule" "nodes_egress" {
