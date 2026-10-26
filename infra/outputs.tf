@@ -1,9 +1,3 @@
-# Provided by the OKE CSI add-on, so it cannot be declared here.
-output "storage_class" {
-  value       = "oci-bv"
-  description = "Block volume StorageClass provided by the OKE CSI add-on."
-}
-
 output "cluster_id" {
   value = oci_containerengine_cluster.main.id
 }

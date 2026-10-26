@@ -27,11 +27,6 @@ variable "node_count" {
   default = 1
 }
 
-variable "node_boot_volume_gbs" {
-  type    = number
-  default = 50
-}
-
 # Created by hand once with `oci network public-ip create --lifetime RESERVED`. Kept outside
 # Terraform on purpose: it survives destroy and the Cloudflare A record never changes.
 variable "lb_reserved_ip_ocid" {
@@ -39,11 +34,12 @@ variable "lb_reserved_ip_ocid" {
 }
 
 variable "allowed_source_cidr" {
-  type    = string
-  default = "93.49.96.116/32"
+  type        = string
+  description = "Only this block reaches the API endpoint and the load balancer."
 }
 
 variable "ssh_public_key" {
   type        = string
-  description = "Public key registered on the nodes. Injected as TF_VAR_ssh_public_key."
+  default     = null
+  description = "Optional public key registered on the nodes. Injected as TF_VAR_ssh_public_key."
 }

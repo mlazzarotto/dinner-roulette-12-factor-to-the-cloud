@@ -172,13 +172,14 @@ resource "oci_core_network_security_group_security_rule" "endpoint_in_12250_node
   }
 }
 
-# The endpoint reaches the nodes on all TCP ports; the nodes talk to each other freely.
+# The endpoint reaches the nodes on all TCP ports (kubelet on 10250, and the rest);
+# the nodes talk to each other freely.
 resource "oci_core_network_security_group_security_rule" "nodes_in_endpoint" {
   network_security_group_id = oci_core_network_security_group.nodes.id
   direction                 = "INGRESS"
   protocol                  = "6"
-  source                    = oci_core_subnet.public.cidr_block
-  source_type               = "CIDR_BLOCK"
+  source                    = oci_core_network_security_group.endpoint.id
+  source_type               = "NETWORK_SECURITY_GROUP"
 }
 
 resource "oci_core_network_security_group_security_rule" "nodes_in_nodes" {
