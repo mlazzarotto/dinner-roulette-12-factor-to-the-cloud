@@ -1,0 +1,36 @@
+name: deploy
+
+# Manual only: the cluster is down outside a workshop session.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # KUBECONFIG_B64 is a repository secret and expires 24h after `make up`.
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Pull secret and db init
+        run: |
+          kubectl create namespace dinner --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n dinner create secret docker-registry ocir \
+            --docker-server="${{ vars.OCIR_REGION }}.ocir.io" \
+            --docker-username="${{ secrets.OCIR_USERNAME }}" \
+            --docker-password="${{ secrets.OCIR_AUTH_TOKEN }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n dinner create configmap db-init \
+            --from-file=init.sql=db/init.sql --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply manifests
+        run: |
+          IMAGE="${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette:latest"
+          sed "s|__OCIR_IMAGE__|$IMAGE|" infra/k8s/app-oke.yaml > /tmp/app.yaml
+          kubectl apply -f infra/k8s/db.yaml -f /tmp/app.yaml -f infra/k8s/ingress-oke.yaml
+          kubectl -n dinner rollout status deploy/app --timeout=180s

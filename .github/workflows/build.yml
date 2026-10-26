@@ -1,0 +1,33 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      # OCIR_REGION and OCIR_NAMESPACE are repository variables; OCIR_USERNAME
+      # (tenancy-namespace/user) and OCIR_AUTH_TOKEN are secrets.
+      - name: Log in to OCIR
+        run: echo "${{ secrets.OCIR_AUTH_TOKEN }}" | docker login "${{ vars.OCIR_REGION }}.ocir.io" -u "${{ secrets.OCIR_USERNAME }}" --password-stdin
+
+      - name: Build and push
+        run: |
+          IMAGE="${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette"
+          docker build --build-arg COMMIT_SHA="${GITHUB_SHA::7}" -t "$IMAGE:$GITHUB_SHA" -t "$IMAGE:latest" .
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:latest"
