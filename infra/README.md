@@ -35,7 +35,7 @@ make oke-cidr CIDR=1.2.3.4/32
 
 It rewrites the value in `prod.tfvars` and applies, so the next `oke-up` does not revert it.
 
-`make oke-deploy` creates the namespace, the pull secret and the db-init ConfigMap, applies the kustomize overlay and waits for the rollout. The manifests live in `k8s/base`, with one overlay per environment in `k8s/overlays`.
+`make oke-deploy` creates the namespace, the pull secret and the db-init ConfigMap, installs the CloudNativePG operator with helm, applies the kustomize overlay and waits for the rollout. The manifests live in `k8s/base`, with one overlay per environment in `k8s/overlays`.
 
 ## Local, with minikube
 
@@ -50,7 +50,7 @@ make mk-smoke            # tunnels through a temporary port-forward
 
 ## What is created where
 
-Terraform owns the VCN, the cluster and the node pool. The load balancer and the Postgres volume come from the OKE cloud-controller-manager and the CSI driver when the manifests are applied, which is why `oke-down` deletes the workloads first.
+Terraform owns the VCN, the cluster and the node pool. Postgres runs as a CloudNativePG `Cluster` (service `db-rw`). The load balancer and the Postgres volume come from the OKE cloud-controller-manager and the CSI driver when the manifests are applied, which is why `oke-down` deletes the workloads first.
 
 Port 80 is closed: cert-manager issues TLS through Cloudflare DNS-01, so the LB listens on 443 only, for your source IP. The LB itself is the ingress-nginx Service, configured by `oke-up`'s helm install (reserved IP, NSG, no security list management).
 

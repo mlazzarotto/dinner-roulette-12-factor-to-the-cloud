@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - db.yaml
   - app.yaml
+  - namespace.yaml

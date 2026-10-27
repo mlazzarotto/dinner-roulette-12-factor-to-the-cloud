@@ -18,7 +18,7 @@ if [ -n "$staged" ]; then
 	if command -v trufflehog >/dev/null 2>&1; then
 		findings=$(printf '%s\n' "$staged" | tr '\n' '\0' \
 			| xargs -0 trufflehog filesystem --no-verification --json --no-color 2>/dev/null \
-			| grep -v 'postgres://dinner:dinner@db:5432' || true)
+			| grep -v 'postgres://dinner:dinner@db-rw:5432' || true)
 		if [ -n "$findings" ]; then
 			echo "pre-commit: trufflehog found credentials in staged files:"
 			printf '%s\n' "$findings" | grep -oE '"DetectorName":"[^"]*"|"Raw":"[^"]*"|"File":"[^"]*"' | sed 's/^/  /'

@@ -3,6 +3,7 @@ K8S := k8s
 
 CERT_MANAGER_VERSION := v1.17.1
 INGRESS_NGINX_VERSION := 4.12.1
+CNPG_VERSION := 0.23.2
 
 # Local secrets file, git-ignored. See .secrets.example. CI passes the same variables
 # through the environment instead.
@@ -23,7 +24,7 @@ OCIR_SERVER := $(firstword $(subst /, ,$(OCIR_IMAGE)))
 	oke-up oke-deploy oke-status oke-env oke-smoke oke-cidr oke-down \
 	mk-up mk-deploy mk-status mk-env mk-smoke mk-down \
 	check-context check-terraform check-registry check-letsencrypt \
-	db-init registry-secret
+	db-init cnpg registry-secret
 
 help: ## List available targets
 	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, $$2) } END { print "Generale:"; printf "%s", line["gen"]; print "\nTerraform, da infra/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
@@ -76,9 +77,10 @@ oke-up: check-terraform check-registry check-letsencrypt ## Create the cluster, 
 oke-deploy: check-registry ## Apply the manifests and wait for the app
 	$(MAKE) registry-secret
 	kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl --context oke apply -f -
+	$(MAKE) cnpg CONTEXT=oke
 	$(MAKE) db-init CONTEXT=oke
 	kubectl kustomize $(K8S)/overlays/oke | sed "s|__OCIR_IMAGE__|$(OCIR_IMAGE)|" | kubectl --context oke apply -f -
-	kubectl --context oke -n dinner rollout status deploy/app --timeout=180s
+	kubectl --context oke -n dinner rollout status deploy/app --timeout=300s
 
 oke-status: ## Show pods, services, ingress, PVCs and certificates
 	kubectl --context oke -n dinner get pods,svc,ingress,pvc -o wide
@@ -121,9 +123,10 @@ mk-up: ## Start minikube, enable ingress, build and load the image
 
 mk-deploy: ## Apply the manifests and wait for the app
 	kubectl --context minikube create namespace dinner --dry-run=client -o yaml | kubectl --context minikube apply -f -
+	$(MAKE) cnpg CONTEXT=minikube
 	$(MAKE) db-init CONTEXT=minikube
 	kubectl kustomize $(K8S)/overlays/minikube | kubectl --context minikube apply -f -
-	kubectl --context minikube -n dinner rollout status deploy/app --timeout=180s
+	kubectl --context minikube -n dinner rollout status deploy/app --timeout=300s
 
 mk-status: ## Show pods, services, ingress and PVCs
 	kubectl --context minikube -n dinner get pods,svc,ingress,pvc -o wide
@@ -173,6 +176,13 @@ registry-secret: check-registry
 		--docker-username="$(OCIR_USERNAME)" \
 		--docker-password="$(OCIR_AUTH_TOKEN)" \
 		--dry-run=client -o yaml | kubectl --context oke apply -f -
+
+# The CloudNativePG operator and its CRDs, which db.yaml needs. Idempotent.
+cnpg: check-context
+	helm repo add cnpg https://cloudnative-pg.github.io/charts >/dev/null
+	helm repo update cnpg >/dev/null
+	helm upgrade --install cnpg cnpg/cloudnative-pg --version $(CNPG_VERSION) \
+		--namespace cnpg-system --create-namespace --kube-context $(CONTEXT) --wait
 
 # db/init.sql is read by Postgres on first init; the namespace must exist.
 db-init: check-context

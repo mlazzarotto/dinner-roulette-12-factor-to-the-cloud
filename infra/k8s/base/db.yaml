@@ -1,73 +1,34 @@
-# db/init.sql arrives through the db-init ConfigMap, created by `make oke-deploy` / `mk-deploy`.
+# Postgres is run by the CloudNativePG operator (installed by `make oke-deploy` / `mk-deploy`).
+# db/init.sql arrives through the db-init ConfigMap, created by the same targets.
 apiVersion: v1
-kind: Namespace
+kind: Secret
 metadata:
-  name: dinner
+  name: db-app
+  namespace: dinner
+type: kubernetes.io/basic-auth
+stringData:
+  username: dinner
+  password: dinner
 ---
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
 metadata:
   name: db
   namespace: dinner
 spec:
-  serviceName: db
-  replicas: 1
-  selector:
-    matchLabels:
-      app: db
-  template:
-    metadata:
-      labels:
-        app: db
-    spec:
-      containers:
-        - name: postgres
-          image: docker.io/library/postgres:17
-          env:
-            - name: POSTGRES_USER
-              value: dinner
-            - name: POSTGRES_PASSWORD
-              value: dinner
-            - name: POSTGRES_DB
-              value: dinner_roulette
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
-          ports:
-            - containerPort: 5432
-          readinessProbe:
-            exec:
-              command: ["pg_isready", "-U", "dinner", "-d", "dinner_roulette"]
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/postgresql/data
-            - name: init
-              mountPath: /docker-entrypoint-initdb.d
-      volumes:
-        - name: init
-          configMap:
-            name: db-init
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        # No storageClassName: use the cluster default (oci-bv on OKE, standard on minikube).
-        # OCI rounds this up to its 50 GB block volume minimum, and volumeClaimTemplates
-        # cannot be changed afterwards.
-        resources:
-          requests:
-            storage: 10Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: db
-  namespace: dinner
-spec:
-  selector:
-    app: db
-  ports:
-    - port: 5432
-      targetPort: 5432
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  bootstrap:
+    initdb:
+      database: dinner_roulette
+      owner: dinner
+      secret:
+        name: db-app
+      postInitApplicationSQLRefs:
+        configMapRefs:
+          - name: db-init
+            key: init.sql
+  storage:
+    # No storageClass: use the cluster default (oci-bv on OKE, standard on minikube).
+    # OCI rounds this up to its 50 GB block volume minimum.
+    size: 1Gi

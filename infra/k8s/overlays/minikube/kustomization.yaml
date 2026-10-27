@@ -6,7 +6,7 @@ resources:
 images:
   - name: __OCIR_IMAGE__
     newName: dinner-roulette
-    newTag: latest
+    newTag: local
 patches:
   - target:
       kind: Deployment
