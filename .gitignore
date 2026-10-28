@@ -5,12 +5,12 @@ dist
 .env
 
 # infra: never commit state, plans and local overrides
-infra/.terraform/
-infra/.terraform.lock.hcl.bak
-infra/*.tfstate
-infra/*.tfstate.*
-infra/tfplan
-infra/*.tfvars.bak
+infra/tf/.terraform/
+infra/tf/.terraform.lock.hcl.bak
+infra/tf/*.tfstate
+infra/tf/*.tfstate.*
+infra/tf/tfplan
+infra/tf/*.tfvars.bak
 infra/.secrets.env
 infra/kubeconfig*
 *.pem
