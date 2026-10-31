@@ -23,7 +23,7 @@ OCIR_SERVER := $(firstword $(subst /, ,$(OCIR_IMAGE)))
 .DEFAULT_GOAL := help
 
 .PHONY: help fmt init plan apply \
-	oke-up oke-deploy oke-status oke-env oke-smoke oke-cidr oke-down \
+	oke-up oke-deploy oke-push oke-status oke-env oke-smoke oke-cidr oke-down \
 	mk-up mk-deploy mk-status mk-env mk-smoke mk-down \
 	check-context check-terraform check-registry check-letsencrypt \
 	db-init cnpg registry-secret
@@ -74,15 +74,21 @@ oke-up: check-terraform check-registry check-letsencrypt ## Create the cluster, 
 	sed "s|__ACME_EMAIL__|$$ACME_EMAIL|" $(K8S)/clusterissuer.yaml | kubectl --context oke apply -f -
 	kubectl --context oke wait --for=condition=Ready clusterissuer/letsencrypt-cloudflare --timeout=120s
 	$(MAKE) oke-deploy
-	@echo "Ready: https://dinner.lazzarotto.dev"
+	@echo "Ready: https://alessandroperetti.dev"
 
 oke-deploy: check-registry ## Apply the manifests and wait for the app
-	$(MAKE) registry-secret
 	kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl --context oke apply -f -
+	$(MAKE) registry-secret
 	$(MAKE) cnpg CONTEXT=oke
 	$(MAKE) db-init CONTEXT=oke
 	kubectl kustomize $(K8S)/overlays/oke | sed "s|__OCIR_IMAGE__|$(OCIR_IMAGE)|" | kubectl --context oke apply -f -
 	kubectl --context oke -n dinner rollout status deploy/app --timeout=300s
+
+# Builds for the architecture of the local Docker daemon. E3/E4 nodes are amd64, A1.Flex is arm64.
+oke-push: check-registry ## Build the app image and push it to OCIR
+	@printf '%s' "$$OCIR_AUTH_TOKEN" | docker login "$(OCIR_SERVER)" -u "$(OCIR_USERNAME)" --password-stdin
+	docker build --build-arg COMMIT_SHA="$$(git -C .. rev-parse --short=7 HEAD)" -t "$(OCIR_IMAGE)" ..
+	docker push "$(OCIR_IMAGE)"
 
 oke-status: ## Show pods, services, ingress, PVCs and certificates
 	kubectl --context oke -n dinner get pods,svc,ingress,pvc -o wide
@@ -94,7 +100,7 @@ oke-env: ## Export KUBECONFIG and select the oke context for kubectl
 	@echo 'kubectl config use-context oke >/dev/null'
 
 oke-smoke: ## Hit /suggestion over HTTPS
-	curl -sf https://dinner.lazzarotto.dev/suggestion; echo
+	curl -sf https://alessandroperetti.dev/suggestion; echo
 
 # Rewrites tf/prod.tfvars, so a later `oke-up` cannot silently revert the old CIDR.
 oke-cidr: check-terraform ## Update the allowed source IP: make oke-cidr CIDR=1.2.3.4/32

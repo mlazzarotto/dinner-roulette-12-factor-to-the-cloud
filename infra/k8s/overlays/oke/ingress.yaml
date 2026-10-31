@@ -10,10 +10,10 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: [dinner.lazzarotto.dev]
+    - hosts: [alessandroperetti.dev]
       secretName: dinner-tls
   rules:
-    - host: dinner.lazzarotto.dev
+    - host: alessandroperetti.dev
       http:
         paths:
           - path: /

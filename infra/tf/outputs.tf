@@ -4,7 +4,7 @@ output "cluster_id" {
 
 output "lb_reserved_ip" {
   value       = data.oci_core_public_ip.lb.ip_address
-  description = "Point the Cloudflare A record dinner.lazzarotto.dev at this address."
+  description = "Point the Cloudflare A record alessandroperetti.dev at this address."
 }
 
 output "region" {

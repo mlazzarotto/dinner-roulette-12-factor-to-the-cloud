@@ -14,7 +14,7 @@ oci network public-ip create --lifetime RESERVED --compartment-id <compartment> 
 
 Then copy `.secrets.example` to `.secrets.env` and fill it in: tenancy OCID, ACME email, Cloudflare token, `OCIR_IMAGE` and the registry credentials (`OCIR_USERNAME`, `OCIR_AUTH_TOKEN`). The SSH public key is optional. The last two are the same auth token as the `OCIR_AUTH_TOKEN` repository secret, and they create the `ocir` pull secret.
 
-In Cloudflare, point an A record for `dinner.lazzarotto.dev` at the reserved IP, DNS-only.
+In Cloudflare, point an A record for `alessandroperetti.dev` at the reserved IP, DNS-only.
 
 ## Day-to-day
 
