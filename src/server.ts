@@ -5,6 +5,8 @@ import { v4 as uuid } from "uuid";
 import { Pool } from "pg";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Idle clients emit here when Postgres restarts or fails over; without a listener Node exits.
+pool.on("error", (err) => console.error(`db: idle client error: ${err.message}`));
 
 type Restaurant = { id: string; name: string; category: string; votes: number };
 

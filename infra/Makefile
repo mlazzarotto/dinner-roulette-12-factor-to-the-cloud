@@ -1,9 +1,11 @@
 # All targets run from infra/. `make -C infra ...`
+# Terraform lives in tf/ and is invoked with -chdir, so the k8s paths stay relative to infra/.
 K8S := k8s
+TF := terraform -chdir=tf
 
 CERT_MANAGER_VERSION := v1.17.1
 INGRESS_NGINX_VERSION := 4.12.1
-CNPG_VERSION := 0.23.2
+CNPG_VERSION := 0.29.1
 
 # Local secrets file, git-ignored. See .secrets.example. CI passes the same variables
 # through the environment instead.
@@ -21,38 +23,38 @@ OCIR_SERVER := $(firstword $(subst /, ,$(OCIR_IMAGE)))
 .DEFAULT_GOAL := help
 
 .PHONY: help fmt init plan apply \
-	oke-up oke-deploy oke-status oke-env oke-smoke oke-cidr oke-down \
+	oke-up oke-deploy oke-push oke-status oke-env oke-smoke oke-cidr oke-down \
 	mk-up mk-deploy mk-status mk-env mk-smoke mk-down \
 	check-context check-terraform check-registry check-letsencrypt \
 	db-init cnpg registry-secret
 
 help: ## List available targets
-	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, $$2) } END { print "Generale:"; printf "%s", line["gen"]; print "\nTerraform, da infra/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
+	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, $$2) } END { print "Generale:"; printf "%s", line["gen"]; print "\nTerraform, da infra/tf/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
 
 # ---------------------------------------------------------------- Terraform
 
 fmt: ## Format the Terraform files
-	terraform fmt -recursive .
+	$(TF) fmt -recursive .
 
 init: ## Initialise the Terraform working directory
-	terraform init
+	$(TF) init
 
 plan: ## Show the Terraform plan for prod.tfvars
-	terraform plan -var-file=prod.tfvars
+	$(TF) plan -var-file=prod.tfvars
 
 # Terraform only, no kubeconfig or addons. Useful after a partial `oke-up`.
 apply: check-terraform ## Apply prod.tfvars without the full bootstrap
-	terraform init
-	terraform apply -var-file=prod.tfvars -auto-approve
+	$(TF) init
+	$(TF) apply -var-file=prod.tfvars -auto-approve
 
 # ---------------------------------------------------------------- OKE
 
 oke-up: check-terraform check-registry check-letsencrypt ## Create the cluster, the addons and deploy (~20 min)
-	terraform init
-	terraform apply -var-file=prod.tfvars -auto-approve
+	$(TF) init
+	$(TF) apply -var-file=prod.tfvars -auto-approve
 	rm -f $(CURDIR)/kubeconfig
-	oci ce cluster create-kubeconfig --cluster-id "$$(terraform output -raw cluster_id)" \
-		--file $(CURDIR)/kubeconfig --region "$$(terraform output -raw region)" --token-version 2.0.0
+	oci ce cluster create-kubeconfig --cluster-id "$$($(TF) output -raw cluster_id)" \
+		--file $(CURDIR)/kubeconfig --region "$$($(TF) output -raw region)" --token-version 2.0.0
 	KUBECONFIG=$(CURDIR)/kubeconfig kubectl config rename-context \
 		"$$(KUBECONFIG=$(CURDIR)/kubeconfig kubectl config current-context)" oke
 	helm repo add jetstack https://charts.jetstack.io >/dev/null
@@ -64,23 +66,29 @@ oke-up: check-terraform check-registry check-letsencrypt ## Create the cluster, 
 	helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --version $(INGRESS_NGINX_VERSION) \
 		--namespace ingress-nginx --create-namespace --kube-context oke --wait \
 		--set controller.service.annotations."service\.beta\.kubernetes\.io/oci-load-balancer-security-list-management-mode"=None \
-		--set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$$(terraform output -raw lb_nsg_id)" \
-		--set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$$(terraform output -raw lb_reserved_ip)"
+		--set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$$($(TF) output -raw lb_nsg_id)" \
+		--set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$$($(TF) output -raw lb_reserved_ip)"
 	kubectl --context oke wait --for=condition=established crd/clusterissuers.cert-manager.io --timeout=120s
 	@kubectl --context oke -n cert-manager create secret generic cloudflare-api-token \
 		--from-literal=token="$$CLOUDFLARE_API_TOKEN" --dry-run=client -o yaml | kubectl --context oke apply -f -
 	sed "s|__ACME_EMAIL__|$$ACME_EMAIL|" $(K8S)/clusterissuer.yaml | kubectl --context oke apply -f -
 	kubectl --context oke wait --for=condition=Ready clusterissuer/letsencrypt-cloudflare --timeout=120s
 	$(MAKE) oke-deploy
-	@echo "Ready: https://dinner.lazzarotto.dev"
+	@echo "Ready: https://dinner.alessandroperetti.dev"
 
 oke-deploy: check-registry ## Apply the manifests and wait for the app
-	$(MAKE) registry-secret
 	kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl --context oke apply -f -
+	$(MAKE) registry-secret
 	$(MAKE) cnpg CONTEXT=oke
 	$(MAKE) db-init CONTEXT=oke
 	kubectl kustomize $(K8S)/overlays/oke | sed "s|__OCIR_IMAGE__|$(OCIR_IMAGE)|" | kubectl --context oke apply -f -
 	kubectl --context oke -n dinner rollout status deploy/app --timeout=300s
+
+# Builds for the architecture of the local Docker daemon. E3/E4 nodes are amd64, A1.Flex is arm64.
+oke-push: check-registry ## Build the app image and push it to OCIR
+	@printf '%s' "$$OCIR_AUTH_TOKEN" | docker login "$(OCIR_SERVER)" -u "$(OCIR_USERNAME)" --password-stdin
+	docker build --build-arg COMMIT_SHA="$$(git -C .. rev-parse --short=7 HEAD)" -t "$(OCIR_IMAGE)" ..
+	docker push "$(OCIR_IMAGE)"
 
 oke-status: ## Show pods, services, ingress, PVCs and certificates
 	kubectl --context oke -n dinner get pods,svc,ingress,pvc -o wide
@@ -92,25 +100,25 @@ oke-env: ## Export KUBECONFIG and select the oke context for kubectl
 	@echo 'kubectl config use-context oke >/dev/null'
 
 oke-smoke: ## Hit /suggestion over HTTPS
-	curl -sf https://dinner.lazzarotto.dev/suggestion; echo
+	curl -sf https://dinner.alessandroperetti.dev/suggestion; echo
 
-# Rewrites prod.tfvars, so a later `oke-up` cannot silently revert the old CIDR.
+# Rewrites tf/prod.tfvars, so a later `oke-up` cannot silently revert the old CIDR.
 oke-cidr: check-terraform ## Update the allowed source IP: make oke-cidr CIDR=1.2.3.4/32
 	@test -n "$(CIDR)" || { echo "Usage: make oke-cidr CIDR=x.x.x.x/32"; exit 1; }
 	@case "$(CIDR)" in */*) ;; *) echo "CIDR must be a block, e.g. 1.2.3.4/32"; exit 1 ;; esac
-	sed -i.bak 's|^allowed_source_cidr.*|allowed_source_cidr = "$(CIDR)"|' prod.tfvars
-	@rm -f prod.tfvars.bak
-	@grep -n '^allowed_source_cidr' prod.tfvars
-	terraform apply -var-file=prod.tfvars -auto-approve
+	sed -i.bak 's|^allowed_source_cidr.*|allowed_source_cidr = "$(CIDR)"|' tf/prod.tfvars
+	@rm -f tf/prod.tfvars.bak
+	@grep -n '^allowed_source_cidr' tf/prod.tfvars
+	$(TF) apply -var-file=prod.tfvars -auto-approve
 
 oke-down: ## Delete the workloads and destroy the cluster
 	-kubectl --context oke delete namespace dinner --ignore-not-found
 	-kubectl --context oke delete clusterissuer letsencrypt-cloudflare --ignore-not-found
 	-kubectl --context oke delete namespace ingress-nginx cert-manager --ignore-not-found
 	-kubectl --context oke wait --for=delete namespace/dinner namespace/ingress-nginx namespace/cert-manager --timeout=300s
-	terraform destroy -var-file=prod.tfvars -auto-approve
+	$(TF) destroy -var-file=prod.tfvars -auto-approve
 	@echo "Leftover load balancers (expect none):"
-	@oci lb load-balancer list --compartment-id "$$(grep compartment_ocid prod.tfvars | cut -d'"' -f2)" --all \
+	@oci lb load-balancer list --compartment-id "$$(grep compartment_ocid tf/prod.tfvars | cut -d'"' -f2)" --all \
 		--query 'data[].{name:"display-name",state:"lifecycle-state"}' --output table || true
 
 # ---------------------------------------------------------------- minikube
@@ -118,8 +126,8 @@ oke-down: ## Delete the workloads and destroy the cluster
 mk-up: ## Start minikube, enable ingress, build and load the image
 	minikube start --cpus=2 --memory=4g
 	minikube addons enable ingress
-	cd .. && docker build -t dinner-roulette:latest .
-	minikube image load dinner-roulette:latest
+	cd .. && docker build -t dinner-roulette:local .
+	minikube image load dinner-roulette:local
 
 mk-deploy: ## Apply the manifests and wait for the app
 	kubectl --context minikube create namespace dinner --dry-run=client -o yaml | kubectl --context minikube apply -f -
