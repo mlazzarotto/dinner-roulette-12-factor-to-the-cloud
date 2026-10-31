@@ -138,7 +138,7 @@ cert-manager renews the certificate automatically about 30 days before it expire
 
 ## 2.6 Use your hostname in the repository
 
-The repository is configured for `alessandroperetti.dev`. Replace it with your host name in two files:
+The repository is configured for `dinner.alessandroperetti.dev`. Replace it with your host name in two files:
 
 | File | Where |
 |---|---|
@@ -150,14 +150,14 @@ Find and replace from the repository root:
 === "Linux"
 
     ```bash
-    grep -rln 'alessandroperetti\.dev' infra/ | xargs sed -i 's/alessandroperetti\.dev/dinner.example.com/g'
+    grep -rln 'dinner\.alessandroperetti\.dev' infra/ | xargs sed -i 's/dinner\.alessandroperetti\.dev/dinner.example.com/g'
     grep -rn 'dinner.example.com' infra/
     ```
 
 === "macOS"
 
     ```bash
-    grep -rln 'alessandroperetti\.dev' infra/ | xargs sed -i '' 's/alessandroperetti\.dev/dinner.example.com/g'
+    grep -rln 'dinner\.alessandroperetti\.dev' infra/ | xargs sed -i '' 's/dinner\.alessandroperetti\.dev/dinner.example.com/g'
     grep -rn 'dinner.example.com' infra/
     ```
 

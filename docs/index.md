@@ -105,4 +105,4 @@ Both environments share `infra/k8s/base`. The differences live in small overlays
 ```
 
 !!! info "About the example values"
-    The repository is currently configured for the domain `alessandroperetti.dev` in the `eu-milan-1` region. This guide uses placeholders such as `dinner.example.com`, `203.0.113.10` and `<tenancy-namespace>`, and tells you exactly which files to change for your own account and domain.
+    The repository is currently configured for the domain `dinner.alessandroperetti.dev` in the `eu-milan-1` region. This guide uses placeholders such as `dinner.example.com`, `203.0.113.10` and `<tenancy-namespace>`, and tells you exactly which files to change for your own account and domain.

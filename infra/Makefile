@@ -74,7 +74,7 @@ oke-up: check-terraform check-registry check-letsencrypt ## Create the cluster, 
 	sed "s|__ACME_EMAIL__|$$ACME_EMAIL|" $(K8S)/clusterissuer.yaml | kubectl --context oke apply -f -
 	kubectl --context oke wait --for=condition=Ready clusterissuer/letsencrypt-cloudflare --timeout=120s
 	$(MAKE) oke-deploy
-	@echo "Ready: https://alessandroperetti.dev"
+	@echo "Ready: https://dinner.alessandroperetti.dev"
 
 oke-deploy: check-registry ## Apply the manifests and wait for the app
 	kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl --context oke apply -f -
@@ -100,7 +100,7 @@ oke-env: ## Export KUBECONFIG and select the oke context for kubectl
 	@echo 'kubectl config use-context oke >/dev/null'
 
 oke-smoke: ## Hit /suggestion over HTTPS
-	curl -sf https://alessandroperetti.dev/suggestion; echo
+	curl -sf https://dinner.alessandroperetti.dev/suggestion; echo
 
 # Rewrites tf/prod.tfvars, so a later `oke-up` cannot silently revert the old CIDR.
 oke-cidr: check-terraform ## Update the allowed source IP: make oke-cidr CIDR=1.2.3.4/32
