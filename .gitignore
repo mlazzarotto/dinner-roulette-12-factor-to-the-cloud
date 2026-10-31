@@ -3,6 +3,8 @@ logs
 dist
 .idea
 .env
+# mkdocs build output (the guide in docs/)
+site/
 
 # infra: never commit state, plans and local overrides
 infra/tf/.terraform/

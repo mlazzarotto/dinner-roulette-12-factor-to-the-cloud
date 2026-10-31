@@ -1,0 +1,9 @@
+/* Keep wide tables readable without squeezing the first column. */
+.md-typeset table:not([class]) td:first-child {
+  white-space: nowrap;
+}
+
+/* Step headings get a little more air above them. */
+.md-typeset h2 {
+  margin-top: 2.2em;
+}

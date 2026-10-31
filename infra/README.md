@@ -2,6 +2,8 @@
 
 OKE cluster on Oracle Cloud, plus the manifests to run the app there or on minikube.
 
+A step-by-step guide with explanations, troubleshooting and a reference is published at <https://mlazzarotto.github.io/dinner-roulette-12-factor-to-the-cloud/> (source in `docs/`).
+
 The stack is created and destroyed around a workshop session: `oke-up` before, `oke-down` after. Only the reserved public IP and the OCIR images survive. Terraform state is local, in `infra/tf/terraform.tfstate` and git-ignored: without it `oke-down` cannot run.
 
 ## One-time setup
