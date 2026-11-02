@@ -14,11 +14,10 @@ if [ -n "$staged" ]; then
 	fi
 
 	# 2. Scan the staged files only, no verification (no network calls, and a revoked
-	#    token is still a leak). The workshop DSN in the manifests is not a secret.
+	#    token is still a leak).
 	if command -v trufflehog >/dev/null 2>&1; then
 		findings=$(printf '%s\n' "$staged" | tr '\n' '\0' \
-			| xargs -0 trufflehog filesystem --no-verification --json --no-color 2>/dev/null \
-			| grep -v 'postgres://dinner:dinner@db-rw:5432' || true)
+			| xargs -0 trufflehog filesystem --no-verification --json --no-color 2>/dev/null || true)
 		if [ -n "$findings" ]; then
 			echo "pre-commit: trufflehog found credentials in staged files:"
 			printf '%s\n' "$findings" | grep -oE '"DetectorName":"[^"]*"|"Raw":"[^"]*"|"File":"[^"]*"' | sed 's/^/  /'

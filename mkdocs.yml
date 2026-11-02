@@ -1,0 +1,107 @@
+site_name: Dinner Roulette on Kubernetes
+site_description: >-
+  Step-by-step guide to run the Dinner Roulette API on minikube and on
+  Oracle Cloud Infrastructure Kubernetes Engine (OKE), with every step explained.
+site_url: https://mlazzarotto.github.io/dinner-roulette-12-factor-to-the-cloud/
+repo_url: https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud
+repo_name: mlazzarotto/dinner-roulette-12-factor-to-the-cloud
+edit_uri: edit/main/docs/
+
+# With `mkdocs build --strict` these warnings fail the build, broken anchors included.
+exclude_docs: |
+  requirements.txt
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    logo: material/dice-multiple
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+
+nav:
+  - Home: index.md
+  - Concepts: concepts.md
+  - Prerequisites: prerequisites.md
+  - minikube: minikube.md
+  - OKE:
+      - oke/index.md
+      - "1. Oracle Cloud account": oke/oci-account.md
+      - "2. Domain and TLS": oke/dns-tls.md
+      - "3. Configure the repository": oke/configure.md
+      - "4. Publish the image": oke/image.md
+      - "5. Bring it up": oke/provision.md
+      - "6. Day-2 operations": oke/operate.md
+      - "7. Tear it down": oke/teardown.md
+  - Troubleshooting: troubleshooting.md
+  - Reference: reference.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  # Lets pages embed real repository files, so the guide always shows the current manifests.
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_css:
+  - stylesheets/extra.css

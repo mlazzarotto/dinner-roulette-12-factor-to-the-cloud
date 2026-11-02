@@ -1,29 +1,19 @@
 # Postgres is run by the CloudNativePG operator (installed by `make oke-deploy` / `mk-deploy`).
 # db/init.sql arrives through the db-init ConfigMap, created by the same targets.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: db-app
-  namespace: dinner
-type: kubernetes.io/basic-auth
-stringData:
-  username: dinner
-  password: dinner
----
+# No initdb secret on purpose: CNPG then generates db-app with a random password and the
+# `uri` key the app reads. A user-supplied secret would only carry username and password.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: db
   namespace: dinner
 spec:
-  instances: 3
+  instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   bootstrap:
     initdb:
       database: dinner_roulette
       owner: dinner
-      secret:
-        name: db-app
       postInitApplicationSQLRefs:
         configMapRefs:
           - name: db-init
