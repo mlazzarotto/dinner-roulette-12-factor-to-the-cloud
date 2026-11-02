@@ -23,7 +23,7 @@ Part I took a real application and applied the 12 factors to it: configuration i
 > [!IMPORTANT]
 > Coming to the workshop? Prepare your laptop before the session:
 >
-> 1. Install **Docker**, **kubectl**, **minikube**, **Helm** and **GNU make**. Add **Terraform** and the **OCI CLI** only if you want to repeat the cloud part on your own Oracle account.
+> 1. Install **Docker**, **kubectl**, **minikube**, **Helm** and **GNU make**. Add **OpenTofu** and the **OCI CLI** only if you want to repeat the cloud part on your own Oracle account.
 > 2. Check that each tool answers: `docker version`, `kubectl version --client`, `minikube version --short`, `helm version --short`.
 > 3. Clone this repository.
 > 4. Optional sanity check: run `docker compose up --build`, then `curl http://localhost:8080/suggestion`.
@@ -55,13 +55,13 @@ The server listens on port 8080. The database is created and seeded by [`db/init
 ├── db/init.sql              # schema and seed data, run once when the database is created
 ├── Dockerfile               # multi-stage build: tests and tsc, then a slim runtime image
 ├── docker-compose.yml       # the plain Docker environment
-├── .githooks/pre-commit     # blocks secrets and Terraform state, runs the tests
+├── .githooks/pre-commit     # blocks secrets and OpenTofu state, runs the tests
 ├── .github/workflows/       # build, deploy, pages
 ├── docs/                    # the step-by-step guide (MkDocs Material)
 └── infra/
     ├── Makefile             # every command used in the guide
     ├── .secrets.example     # template for infra/.secrets.env, git-ignored
-    ├── tf/                  # Terraform: VCN, OKE cluster, node pool
+    ├── tf/                  # OpenTofu: VCN, OKE cluster, node pool
     └── k8s/
         ├── base/            # namespace, app Deployment and Service, CNPG Cluster
         └── overlays/        # minikube and OKE variations of the base
@@ -73,13 +73,13 @@ The entry points in `infra/Makefile`:
 |---|---|
 | `mk-up`, `mk-deploy`, `mk-smoke` | Start minikube, deploy the stack, hit `/suggestion` |
 | `mk-status`, `mk-env`, `mk-down` | Inspect the namespace, export the kubeconfig context, delete the workloads |
-| `oke-up` | Terraform, kubeconfig, cert-manager, ingress-nginx, deploy. About 20 minutes from nothing |
+| `oke-up` | OpenTofu, kubeconfig, cert-manager, ingress-nginx, deploy. About 20 minutes from nothing |
 | `oke-deploy` | Manifests only: namespace, pull secret, database, app |
 | `oke-push` | Build the image and push it to the Oracle registry |
 | `oke-status`, `oke-env`, `oke-smoke` | Inspect, export the context, hit the public URL |
 | `oke-cidr CIDR=1.2.3.4/32` | Update the allowed source IP and apply |
 | `oke-down` | Delete the workloads, then destroy the cluster |
-| `init`, `plan`, `apply` | Terraform only, useful after a partial `oke-up` |
+| `init`, `plan`, `apply` | OpenTofu only, useful after a partial `oke-up` |
 
 Run `make` inside `infra/` for the full list with one-line descriptions.
 

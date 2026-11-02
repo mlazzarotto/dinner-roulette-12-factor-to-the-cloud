@@ -1,6 +1,6 @@
 # Step 1: Prepare your Oracle Cloud account
 
-At the end of this step, Terraform and the OCI CLI can authenticate to your tenancy, Docker can log in to the Oracle container registry (OCIR), and you have a reserved public IP for the load balancer.
+At the end of this step, OpenTofu and the OCI CLI can authenticate to your tenancy, Docker can log in to the Oracle container registry (OCIR), and you have a reserved public IP for the load balancer.
 
 **Time:** 20 to 40 minutes, once.
 
@@ -48,7 +48,7 @@ Use the **same compartment** for the reserved IP in [1.7](#17-reserve-a-public-i
 
 ## 1.4 Create an API signing key and configure the OCI CLI
 
-Terraform's OCI provider and the OCI CLI authenticate with an **API signing key**: an RSA key pair whose public half is registered on your user. Both tools read the `[DEFAULT]` profile in `~/.oci/config`. `infra/tf/backend.tf` sets only the region, and everything else comes from that file.
+OpenTofu's OCI provider and the OCI CLI authenticate with an **API signing key**: an RSA key pair whose public half is registered on your user. Both tools read the `[DEFAULT]` profile in `~/.oci/config`. `infra/tf/backend.tf` sets only the region, and everything else comes from that file.
 
 === "Console (recommended)"
 
@@ -90,7 +90,7 @@ Terraform's OCI provider and the OCI CLI authenticate with an **API signing key*
     Then register the public key: Profile menu → **My profile** → **API keys** → **Add API key** → **Paste a public key**, and paste the content of `~/.oci/oci_api_key_public.pem`. The fingerprint shown by the Console must match the `fingerprint=` line that the wizard wrote.
 
 !!! danger "Encrypted keys need `pass_phrase`"
-    Terraform cannot prompt for a passphrase. If your private key is encrypted and the profile has no passphrase, `terraform plan` stops with:
+    OpenTofu cannot prompt for a passphrase. If your private key is encrypted and the profile has no passphrase, `tofu plan` stops with:
 
     ```text
     Error: can not create client, bad configuration: did not find a proper configuration for private key
@@ -109,7 +109,7 @@ A `NotAuthenticated` (401) error means the key, the fingerprint, the user OCID o
 
 This one key is used by:
 
-- **Terraform**, to create and destroy the infrastructure;
+- **OpenTofu**, to create and destroy the infrastructure;
 - **`oci ce cluster create-kubeconfig`**, to write `infra/kubeconfig`;
 - **`kubectl`**, every time it talks to OKE: the kubeconfig runs `oci ce cluster generate-token` to get a short-lived token. Any machine that uses this kubeconfig needs the OCI CLI and a valid profile;
 - the `Makefile`'s final check for leftover load balancers in `oke-down`.
@@ -183,7 +183,7 @@ Write both down:
 - the **`id`** goes into `lb_reserved_ip_ocid` in `infra/tf/prod.tfvars`;
 - the **`ip`** goes into your DNS A record in [step 2](dns-tls.md).
 
-**Why it is not managed by Terraform:** `terraform destroy` would delete it, and the next `oke-up` would get a different address. Terraform only **reads** it through a data source (`infra/tf/outputs.tf`) to turn the OCID into an address. `make oke-up` passes that address to the ingress-nginx Service in the `oci.oraclecloud.com/reserved-ips` annotation, which takes an IP address, not an OCID.
+**Why it is not managed by OpenTofu:** `tofu destroy` would delete it, and the next `oke-up` would get a different address. OpenTofu only **reads** it through a data source (`infra/tf/outputs.tf`) to turn the OCID into an address. `make oke-up` passes that address to the ingress-nginx Service in the `oci.oraclecloud.com/reserved-ips` annotation, which takes an IP address, not an OCID.
 
 The IP must be in the same region as the cluster and **unassigned** when the load balancer is created. To list your reserved IPs and see which ones are in use:
 
@@ -221,7 +221,7 @@ oci ce cluster-options get --cluster-option-id all --query 'data."kubernetes-ver
 
 If `v1.34.10` (or the value you set) is not in the list, put a listed version in `prod.tfvars` as `k8s_version = "v1.xx.y"`.
 
-**Is there capacity for the node shape?** Terraform places the node in the first availability domain. Ask OCI whether it can host the shape right now:
+**Is there capacity for the node shape?** OpenTofu places the node in the first availability domain. Ask OCI whether it can host the shape right now:
 
 ```bash
 TENANCY=<tenancy-ocid>

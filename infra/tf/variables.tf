@@ -28,7 +28,7 @@ variable "node_count" {
 }
 
 # Created by hand once with `oci network public-ip create --lifetime RESERVED`. Kept outside
-# Terraform on purpose: it survives destroy and the Cloudflare A record never changes.
+# OpenTofu on purpose: it survives destroy and the Cloudflare A record never changes.
 variable "lb_reserved_ip_ocid" {
   type = string
 }

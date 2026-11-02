@@ -4,27 +4,27 @@
 
 Run from `infra/`, or with `make -C infra <target>` from the repository root. `make` alone prints this list.
 
-### Terraform
+### OpenTofu
 
 | Target | What it does |
 |---|---|
-| `fmt` | `terraform fmt -recursive` on `infra/tf/` |
-| `init` | `terraform init`: downloads the OCI provider pinned by `.terraform.lock.hcl` |
+| `fmt` | `tofu fmt -recursive` on `infra/tf/` |
+| `init` | `tofu init`: downloads the OCI provider pinned by `.terraform.lock.hcl` |
 | `plan` | Shows what `apply` would change, for `prod.tfvars` |
-| `apply` | `init` plus `apply -auto-approve`. Terraform only, no kubeconfig and no add-ons. Useful after a partial `oke-up` |
+| `apply` | `init` plus `apply -auto-approve`. OpenTofu only, no kubeconfig and no add-ons. Useful after a partial `oke-up` |
 
 ### OKE
 
 | Target | What it does |
 |---|---|
-| `oke-up` | Terraform, kubeconfig, cert-manager, ingress-nginx, ClusterIssuer, then `oke-deploy`. About 20 minutes from nothing |
+| `oke-up` | OpenTofu, kubeconfig, cert-manager, ingress-nginx, ClusterIssuer, then `oke-deploy`. About 20 minutes from nothing |
 | `oke-deploy` | Namespace, `ocir` Secret, CNPG operator, `db-init`, OKE overlay with your image, rollout wait |
 | `oke-push` | `docker login`, build for the local architecture, and push to `OCIR_IMAGE` |
 | `oke-status` | Pods, Services, Ingress, PVCs and certificates in `dinner` |
 | `oke-env` | Prints the `KUBECONFIG` export and `use-context oke`. Use as `eval "$(make oke-env)"` |
 | `oke-smoke` | `curl -sf https://<host>/suggestion` |
 | `oke-cidr` | `make oke-cidr CIDR=x.x.x.x/32`: rewrites `allowed_source_cidr` in `prod.tfvars` and applies |
-| `oke-down` | Deletes the workloads, then `terraform destroy`, then lists leftover load balancers |
+| `oke-down` | Deletes the workloads, then `tofu destroy`, then lists leftover load balancers |
 
 ### minikube
 
@@ -46,15 +46,15 @@ These are called by the targets above. You can run them on their own when you ne
 | `cnpg CONTEXT=<ctx>` | Installs or upgrades the CloudNativePG operator with Helm, on `oke` or `minikube` |
 | `db-init CONTEXT=<ctx>` | Creates or updates the `db-init` ConfigMap from `db/init.sql`, on `oke` or `minikube` |
 | `registry-secret` | Creates or updates the `ocir` pull Secret on OKE |
-| `check-terraform`, `check-registry`, `check-letsencrypt` | Stop early when a required variable is empty |
+| `check-tofu`, `check-registry`, `check-letsencrypt` | Stop early when a required variable is empty |
 | `check-context` | Rejects a `CONTEXT` other than `oke` or `minikube` |
 
 ## Variables
 
 | Variable | Local source | CI source | Used by |
 |---|---|---|---|
-| `TF_VAR_tenancy_ocid` | `infra/.secrets.env` | none | Terraform |
-| `TF_VAR_ssh_public_key` | `infra/.secrets.env`, optional | none | Terraform, node pool |
+| `TF_VAR_tenancy_ocid` | `infra/.secrets.env` | none | OpenTofu |
+| `TF_VAR_ssh_public_key` | `infra/.secrets.env`, optional | none | OpenTofu, node pool |
 | `ACME_EMAIL` | `infra/.secrets.env` | none | `oke-up`, ClusterIssuer |
 | `CLOUDFLARE_API_TOKEN` | `infra/.secrets.env` | none | `oke-up`, Secret `cloudflare-api-token` |
 | `OCIR_USERNAME` | `infra/.secrets.env` | secret `OCIR_USERNAME` | `oke-push`, `registry-secret`, `build` workflow |
@@ -64,7 +64,7 @@ These are called by the targets above. You can run them on their own when you ne
 | `CIDR` | command line | none | `oke-cidr` |
 | `CONTEXT` | set by the calling target | none | `cnpg`, `db-init` |
 
-Terraform inputs are listed in [step 3](oke/configure.md#32-edit-infratfprodtfvars).
+OpenTofu inputs are listed in [step 3](oke/configure.md#32-edit-infratfprodtfvars).
 
 ## Pinned versions
 
@@ -75,8 +75,8 @@ Terraform inputs are listed in [step 3](oke/configure.md#32-edit-infratfprodtfva
 | CloudNativePG chart | `0.29.1` | `CNPG_VERSION` in `infra/Makefile` |
 | PostgreSQL | `17` | `imageName` in `infra/k8s/base/db.yaml` |
 | Kubernetes on OKE | `v1.34.10` | `k8s_version` default in `infra/tf/variables.tf` |
-| OCI Terraform provider | `~> 6.20`, locked to `6.37.0` | `infra/tf/versions.tf`, `.terraform.lock.hcl` |
-| Terraform | `>= 1.12` | `infra/tf/versions.tf` |
+| OCI OpenTofu provider | `~> 6.20`, locked to `6.37.0` | `infra/tf/versions.tf`, `.terraform.lock.hcl` |
+| OpenTofu | `>= 1.12` | `infra/tf/versions.tf` |
 | Node.js | 22 in CI, `node:slim` in the image | `.github/workflows/build.yml`, `Dockerfile` |
 
 To bump a chart, change the version in the `Makefile`, read the chart's release notes, and test on minikube first where possible.
@@ -119,8 +119,8 @@ kubectl -n dinner get secret db-app -o jsonpath='{.data.password}' | base64 -d; 
 kubectl kustomize k8s/overlays/minikube
 kubectl kustomize k8s/overlays/oke
 
-# Terraform outputs
-terraform -chdir=tf output
+# OpenTofu outputs
+tofu -chdir=tf output
 
 # Your current public IP, for allowed_source_cidr
 curl -4 -s https://ifconfig.me; echo
@@ -132,7 +132,7 @@ ACME
 :   The protocol Let's Encrypt speaks. A client such as cert-manager orders a certificate, proves control of the domain with a challenge (here DNS-01), and receives the certificate.
 
 Availability domain (AD)
-:   An isolated data center within an OCI region. Milan has one. Terraform puts the node in the first AD of the region.
+:   An isolated data center within an OCI region. Milan has one. OpenTofu puts the node in the first AD of the region.
 
 Basic cluster
 :   OKE cluster type with a free control plane and no financially backed SLA. Enhanced clusters add features and cost $0.10 per hour.

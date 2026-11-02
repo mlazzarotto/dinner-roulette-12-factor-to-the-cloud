@@ -10,7 +10,7 @@ Steps 1 to 4 are done **once**. Steps 5 to 7 are the cycle you repeat for every 
 
 | Step | What you do | Result |
 |---|---|---|
-| [1. Oracle Cloud account](oci-account.md) | API key, auth token, reserved IP, your source IP | Terraform, the OCI CLI and Docker can talk to Oracle |
+| [1. Oracle Cloud account](oci-account.md) | API key, auth token, reserved IP, your source IP | OpenTofu, the OCI CLI and Docker can talk to Oracle |
 | [2. Domain and TLS](dns-tls.md) | Cloudflare zone, A record, API token | A hostname pointing at your reserved IP, and a token for cert-manager |
 | [3. Configure the repository](configure.md) | `infra/.secrets.env`, `infra/tf/prod.tfvars`, the hostname | The repository describes your account and domain |
 | [4. Publish the image](image.md) | Push the app image to OCIR | An image the cluster can pull |
@@ -26,8 +26,8 @@ Three layers of tooling create the resources, and OKE itself creates two more in
 
 | Resource | Created by | Removed by | Survives `oke-down` |
 |---|---|---|---|
-| VCN, gateways, subnets, route tables, security list, NSGs | Terraform (`infra/tf/network.tf`) | `terraform destroy` | No |
-| OKE Basic cluster and node pool | Terraform (`infra/tf/cluster.tf`) | `terraform destroy` | No |
+| VCN, gateways, subnets, route tables, security list, NSGs | OpenTofu (`infra/tf/network.tf`) | `tofu destroy` | No |
+| OKE Basic cluster and node pool | OpenTofu (`infra/tf/cluster.tf`) | `tofu destroy` | No |
 | cert-manager, ingress-nginx, ClusterIssuer, Cloudflare Secret | `make oke-up` (Helm and kubectl) | Deleted with their namespaces | No |
 | CNPG operator, `ocir` Secret, `db-init`, app manifests | `make oke-deploy` | Deleted with their namespaces | No |
 | **OCI Load Balancer** | OKE's cloud controller manager, for the ingress-nginx `LoadBalancer` Service | The cloud controller manager, when the Service is deleted | No |
@@ -36,9 +36,9 @@ Three layers of tooling create the resources, and OKE itself creates two more in
 | Reserved public IP | You, once, with the OCI CLI | You | **Yes** |
 | Images in OCIR | CI or `make oke-push` | You | **Yes** |
 | DNS record, Cloudflare token | You, once | You | **Yes** |
-| Terraform state (`infra/tf/terraform.tfstate`) | Terraform, on your laptop | Never delete it | **Yes** |
+| OpenTofu state (`infra/tf/terraform.tfstate`) | OpenTofu, on your laptop | Never delete it | **Yes** |
 
-The two rows in bold are the reason why `make oke-down` deletes the Kubernetes workloads **before** running `terraform destroy`. Terraform does not know about the load balancer or the block volume. If the cluster disappeared first, nobody would be left to delete them: the load balancer would block the deletion of its subnet, and the volume would keep costing money.
+The two rows in bold are the reason why `make oke-down` deletes the Kubernetes workloads **before** running `tofu destroy`. OpenTofu does not know about the load balancer or the block volume. If the cluster disappeared first, nobody would be left to delete them: the load balancer would block the deletion of its subnet, and the volume would keep costing money.
 
 ## The network
 
@@ -106,16 +106,16 @@ When you run `curl https://dinner.example.com/suggestion`:
 
 | Phase | What happens | Rough duration |
 |---|---|---|
-| Terraform, network | VCN, gateways, subnets, NSGs and rules | about 1 min |
-| Terraform, cluster | Control plane is provisioned by Oracle | 7 to 10 min |
-| Terraform, node pool | Worker VM boots and joins the cluster | 5 to 10 min |
+| OpenTofu, network | VCN, gateways, subnets, NSGs and rules | about 1 min |
+| OpenTofu, cluster | Control plane is provisioned by Oracle | 7 to 10 min |
+| OpenTofu, node pool | Worker VM boots and joins the cluster | 5 to 10 min |
 | kubeconfig | `infra/kubeconfig`, context `oke` | seconds |
 | cert-manager | Helm install, CRDs included | 1 to 2 min |
 | ingress-nginx | Helm install, then OCI creates the load balancer on your reserved IP | 2 to 4 min |
 | ClusterIssuer | Cloudflare token Secret, ACME account registration | under 1 min |
 | `oke-deploy` | Namespace, pull secret, CNPG, database volume, app rollout | 3 to 5 min |
 
-About 20 minutes from nothing. Running it again on an existing cluster takes a few minutes, because Terraform finds nothing to change.
+About 20 minutes from nothing. Running it again on an existing cluster takes a few minutes, because OpenTofu finds nothing to change.
 
 ## What it costs
 

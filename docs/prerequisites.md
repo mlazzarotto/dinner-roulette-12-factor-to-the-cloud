@@ -11,8 +11,8 @@ You need a handful of command-line tools. minikube needs only the first four; OK
 | minikube | minikube | 1.39 | The local cluster |
 | Helm | both | 4.3 (3.x works too) | Installs CloudNativePG, cert-manager, ingress-nginx |
 | GNU make | both | 4.x | Runs the targets in `infra/Makefile` |
-| Terraform | OKE | 1.14 (1.12 or newer is required) | Creates the network, cluster and node pool |
-| OCI CLI | OKE | 3.95 | Authenticates Terraform's provider, writes the kubeconfig, and issues the tokens `kubectl` uses on OKE |
+| OpenTofu | OKE | 1.13 (1.12 or newer is required) | Creates the network, cluster and node pool |
+| OCI CLI | OKE | 3.95 | Authenticates OpenTofu's provider, writes the kubeconfig, and issues the tokens `kubectl` uses on OKE |
 | curl, dig | both | any | Smoke tests and DNS checks |
 | gh (GitHub CLI) | optional | 2.82 | Sets CI secrets and triggers workflows |
 | Node.js 22 | optional | 22 | Runs the tests locally and in the pre-commit hook |
@@ -44,11 +44,8 @@ You need a handful of command-line tools. minikube needs only the first four; OK
     # make, curl, dig
     sudo apt-get install -y make curl dnsutils
 
-    # Terraform, from HashiCorp's apt repository
-    wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
-      | sudo tee /etc/apt/sources.list.d/hashicorp.list
-    sudo apt-get update && sudo apt-get install -y terraform
+    # OpenTofu
+    sudo snap install opentofu --classic
 
     # OCI CLI (interactive installer, accept the defaults)
     bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
@@ -61,14 +58,14 @@ You need a handful of command-line tools. minikube needs only the first four; OK
     ```bash
     brew install --cask docker          # Docker Desktop; start it once from Applications
     brew install kubectl minikube helm make
-    brew tap hashicorp/tap && brew install hashicorp/tap/terraform
+    brew install opentofu
     brew install oci-cli
     ```
 
     macOS ships an old GNU make 3.81. The `Makefile` uses nothing exotic and should work with it. If you hit odd parsing errors, `brew install make` gives you a current version as `gmake`.
 
-??? tip "OpenTofu instead of Terraform"
-    The Terraform code is plain HCL and has no Terraform-only features. The `Makefile` calls the `terraform` binary through a single variable, so you can override it without editing files, for example `make TF="tofu -chdir=tf" plan`. This path has not been tested end to end with this repository, so expect to sort out the provider download yourself on the first `tofu init`.
+??? tip "Terraform instead of OpenTofu"
+    The code is plain HCL, so Terraform also works. The `Makefile` calls the binary through a single variable: `make TF="terraform -chdir=tf" plan`.
 
 ## Check the installation
 
@@ -78,7 +75,7 @@ minikube version --short
 kubectl version --client
 helm version --short
 make --version | head -1
-terraform version | head -1
+tofu version | head -1
 oci --version
 ```
 
@@ -101,7 +98,7 @@ Each command should print a version. If `docker version` prints the client but f
 git clone https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud.git
 cd dinner-roulette-12-factor-to-the-cloud
 
-# Optional but recommended: blocks commits of secrets and Terraform state, and runs the tests
+# Optional but recommended: blocks commits of secrets and OpenTofu state, and runs the tests
 git config core.hooksPath .githooks
 ```
 

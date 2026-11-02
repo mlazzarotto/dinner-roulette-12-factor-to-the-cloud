@@ -52,7 +52,7 @@ flowchart TB
   cm -->|"Secret dinner-tls"| nginx
 ```
 
-Terraform creates the network and the cluster. Helm installs the cluster add-ons. The manifests deploy the app and its database. OKE itself then creates the load balancer and the disk that the manifests ask for. Only your own IP address can reach the Kubernetes API and the website.
+OpenTofu creates the network and the cluster. Helm installs the cluster add-ons. The manifests deploy the app and its database. OKE itself then creates the load balancer and the disk that the manifests ask for. Only your own IP address can reach the Kubernetes API and the website.
 
 ## Same manifests, two environments
 
@@ -61,7 +61,7 @@ Both environments share `infra/k8s/base`. The differences live in small overlays
 | Aspect | minikube | OKE |
 |---|---|---|
 | Cluster | One node, inside Docker on your laptop | Managed control plane plus one worker VM |
-| Created by | `minikube start` | Terraform (`infra/tf/`) |
+| Created by | `minikube start` | OpenTofu (`infra/tf/`) |
 | Image | Built locally, loaded with `minikube image load`, never pulled | Pushed to OCIR, pulled with the `ocir` Secret |
 | Entry point | Ingress addon, reached through a port-forward | ingress-nginx behind an OCI Load Balancer |
 | Hostname | `dinner.local`, sent as a `Host` header | Your real domain |
@@ -86,7 +86,7 @@ Both environments share `infra/k8s/base`. The differences live in small overlays
 ├── db/init.sql              # schema and seed data, run once by CloudNativePG
 ├── Dockerfile               # multi-stage build: tests and tsc, then a slim runtime image
 ├── docker-compose.yml       # plain Docker alternative, no Kubernetes involved
-├── .githooks/pre-commit     # blocks secrets and Terraform state, runs the tests
+├── .githooks/pre-commit     # blocks secrets and OpenTofu state, runs the tests
 ├── .github/workflows/
 │   ├── build.yml            # tests, then multi-arch image pushed to OCIR (on push to main)
 │   ├── deploy.yml           # manual deploy to OKE
@@ -95,7 +95,7 @@ Both environments share `infra/k8s/base`. The differences live in small overlays
 └── infra/
     ├── Makefile             # every command used in this guide
     ├── .secrets.example     # template for infra/.secrets.env (git-ignored)
-    ├── tf/                  # Terraform: network, OKE cluster, node pool
+    ├── tf/                  # OpenTofu: network, OKE cluster, node pool
     └── k8s/
         ├── base/            # namespace, app Deployment and Service, CNPG Cluster
         ├── overlays/

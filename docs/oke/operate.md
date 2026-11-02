@@ -110,7 +110,7 @@ The target:
 
 1. checks that `CIDR` is set and contains a `/`;
 2. rewrites the `allowed_source_cidr` line in `tf/prod.tfvars`, so a later `oke-up` does not put the old value back;
-3. runs `terraform apply`, which updates the two NSG rules in place in a few seconds.
+3. runs `tofu apply`, which updates the two NSG rules in place in a few seconds.
 
 `prod.tfvars` is tracked by git, so the change shows up in `git status`. Commit it or not, as you prefer.
 
@@ -122,7 +122,7 @@ The target:
 
 **Bigger nodes.** Changing `node_shape`, `node_ocpus` or `node_memory_gbs` updates the node pool, but OKE applies node pool changes only to **new** nodes. Basic clusters do not support automatic node cycling, so existing nodes keep their old size until they are replaced. For this ephemeral stack, the simplest way is `make oke-down` followed by `make oke-up`.
 
-**Kubernetes upgrades.** The same applies to `k8s_version`. Terraform upgrades the control plane and then the node pool definition, but existing nodes keep the old version until they are replaced. A fresh `oke-down` and `oke-up` with the new version is the easy path.
+**Kubernetes upgrades.** The same applies to `k8s_version`. OpenTofu upgrades the control plane and then the node pool definition, but existing nodes keep the old version until they are replaced. A fresh `oke-down` and `oke-up` with the new version is the easy path.
 
 ## Deploy from GitHub Actions
 

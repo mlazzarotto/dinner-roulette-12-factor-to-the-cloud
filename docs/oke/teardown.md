@@ -30,7 +30,7 @@ Kubernetes deletes everything inside it: the app, the Ingress, the CNPG `Cluster
 
 **4. Wait** up to five minutes until the three namespaces are really gone, so the load balancer and the volume are deleted while the cluster still exists.
 
-**5. `terraform destroy`.** Removes the node pool, the cluster, the NSG rules, the NSGs, the subnets, the route tables, the gateways and the VCN, in reverse dependency order. The node pool has `eviction_grace_duration = "PT0S"`, so OKE does not wait for pods to drain before deleting the node.
+**5. `tofu destroy`.** Removes the node pool, the cluster, the NSG rules, the NSGs, the subnets, the route tables, the gateways and the VCN, in reverse dependency order. The node pool has `eviction_grace_duration = "PT0S"`, so OKE does not wait for pods to drain before deleting the node.
 
 **6. List leftover load balancers** in the compartment, as a final check:
 
@@ -42,9 +42,9 @@ Query returned empty result, no output to show.
 
 ## Why the order matters
 
-Terraform knows only what it created. The load balancer and the block volume were created by OKE's controllers, in response to a Service and a PVC. If Terraform destroyed the cluster first:
+OpenTofu knows only what it created. The load balancer and the block volume were created by OKE's controllers, in response to a Service and a PVC. If OpenTofu destroyed the cluster first:
 
-- the **load balancer** would stay in the public subnet, and `terraform destroy` would then fail to delete the subnet and the VCN, because a resource still uses them;
+- the **load balancer** would stay in the public subnet, and `tofu destroy` would then fail to delete the subnet and the VCN, because a resource still uses them;
 - the **block volume** would stay unattached, and keep counting against your storage, or your bill.
 
 Deleting the workloads first lets those controllers clean up while they still run.
@@ -82,7 +82,7 @@ The first three should return nothing. The last one should show your reserved IP
 
 ## If the teardown fails
 
-**`terraform destroy` fails on a subnet or the VCN with a conflict.** Something Terraform did not create still uses the subnet, almost always the load balancer. Find and delete it, then destroy again:
+**`tofu destroy` fails on a subnet or the VCN with a conflict.** Something OpenTofu did not create still uses the subnet, almost always the load balancer. Find and delete it, then destroy again:
 
 ```bash
 oci lb load-balancer list --compartment-id "$C" --all --query 'data[].{id:id, name:"display-name"}' --output table
@@ -92,7 +92,7 @@ make oke-down
 
 **A namespace stays in `Terminating`.** Usually a finalizer is waiting for a controller that is already gone. Check with `kubectl --context oke get namespace dinner -o yaml` and `kubectl --context oke -n dinner get all`. The `Makefile` only waits five minutes and then continues anyway, and the destroy removes the cluster. Still check for a leftover load balancer and volume afterwards.
 
-**The Terraform state is lost.** Terraform cannot destroy what it does not know about. Delete the resources by hand in the Console: the cluster under **Kubernetes Clusters (OKE)**, which also deletes the node pool, then the load balancer, the block volumes, and finally the VCN under **Virtual cloud networks**. The Console offers to delete the VCN together with its subnets, gateways and NSGs.
+**The OpenTofu state is lost.** OpenTofu cannot destroy what it does not know about. Delete the resources by hand in the Console: the cluster under **Kubernetes Clusters (OKE)**, which also deletes the node pool, then the load balancer, the block volumes, and finally the VCN under **Virtual cloud networks**. The Console offers to delete the VCN together with its subnets, gateways and NSGs.
 
 ## Removing everything for good
 

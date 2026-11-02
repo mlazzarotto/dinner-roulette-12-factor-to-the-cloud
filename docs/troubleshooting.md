@@ -97,13 +97,13 @@ make mk-deploy
 
 **Fix.** Recreate the database: `make mk-down && make mk-deploy`. This deletes the votes. On OKE, the next `oke-down` and `oke-up` cycle does the same.
 
-## OCI authentication and Terraform
+## OCI authentication and OpenTofu
 
 ### "did not find a proper configuration for private key"
 
 **Symptom.** `make plan` or `make oke-up` stops with `Error: can not create client, bad configuration: did not find a proper configuration for private key`.
 
-**Cause.** The `[DEFAULT]` profile in `~/.oci/config` points to an **encrypted** private key and has no `pass_phrase`. Terraform cannot prompt for one. A wrong `key_file` path gives the same error.
+**Cause.** The `[DEFAULT]` profile in `~/.oci/config` points to an **encrypted** private key and has no `pass_phrase`. OpenTofu cannot prompt for one. A wrong `key_file` path gives the same error.
 
 **Fix.** Add `pass_phrase=<passphrase>` to the profile, or use a key without passphrase. Check that `key_file` exists and is readable. Then `oci iam region list` must work.
 
@@ -119,7 +119,7 @@ make mk-deploy
 
 **Fix.** Run from `infra/`, or use `make -C infra …`. Create the file from `.secrets.example` ([step 3](oke/configure.md)).
 
-### Terraform asks for `var.tenancy_ocid`
+### OpenTofu asks for `var.tenancy_ocid`
 
 **Cause.** Same as above, with `make plan`, which does not run the variable checks.
 
@@ -127,7 +127,7 @@ make mk-deploy
 
 ### Node pool fails with "Work request exceeded max retry count"
 
-**Symptom.** Terraform has been creating the node pool for several minutes. The Console shows **0 nodes provisioned**. Then the apply fails with `Work request exceeded max retry count`, sometimes mentioning `Out of host capacity`, and OKE deletes the node pool.
+**Symptom.** OpenTofu has been creating the node pool for several minutes. The Console shows **0 nodes provisioned**. Then the apply fails with `Work request exceeded max retry count`, sometimes mentioning `Out of host capacity`, and OKE deletes the node pool.
 
 **Cause.** The availability domain has no free hardware for this shape right now. It is not a quota or account problem. `VM.Standard.A1.Flex` is often full, and E-series shapes can be full too at times.
 
@@ -142,9 +142,9 @@ make mk-deploy
     ```
 
 2. Make sure the image architecture matches the new shape ([step 4](oke/image.md#make-sure-the-architecture-matches)).
-3. Run `make apply`, which runs only Terraform, then `make oke-up`.
+3. Run `make apply`, which runs only OpenTofu, then `make oke-up`.
 
-If Terraform complains about a node pool that no longer exists, refresh the state first: `terraform -chdir=tf apply -refresh-only -var-file=prod.tfvars -auto-approve`. To check capacity before trying, use the capacity report from [step 1.9](oke/oci-account.md#19-optional-checks). Retrying the same shape later can also work.
+If OpenTofu complains about a node pool that no longer exists, refresh the state first: `tofu -chdir=tf apply -refresh-only -var-file=prod.tfvars -auto-approve`. To check capacity before trying, use the capacity report from [step 1.9](oke/oci-account.md#19-optional-checks). Retrying the same shape later can also work.
 
 ### The node pool is rejected because of the SSH key
 
@@ -152,7 +152,7 @@ If Terraform complains about a node pool that no longer exists, refresh the stat
 
 **Fix.** Put a real public key without quotes, for example the content of `~/.ssh/id_ed25519.pub`, or delete the line. Then `make apply`.
 
-### Terraform: "Invalid index" on `local.oke_node_image_names`
+### OpenTofu: "Invalid index" on `local.oke_node_image_names`
 
 **Cause.** No OKE node image matched the filters in `cluster.tf`: OKE image, cluster version, Oracle Linux 9, no GPU, the shape's architecture. The list is empty, and taking its last element fails. The usual reason is a `k8s_version` that OKE no longer offers images for.
 

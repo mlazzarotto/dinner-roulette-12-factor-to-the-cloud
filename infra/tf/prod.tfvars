@@ -3,7 +3,7 @@
 region           = "eu-milan-1"
 compartment_ocid = "ocid1.tenancy.oc1..aaaaaaaahyvfwviddsjaegbzmdbya5rthjscqxnipegnkebnkurd6po7t6fq"
 
-# Reserved IP dinner-lb, 129.152.10.43. Created once; survives terraform destroy.
+# Reserved IP dinner-lb, 129.152.10.43. Created once; survives tofu destroy.
 lb_reserved_ip_ocid = "ocid1.publicip.oc1.eu-milan-1.amaaaaaaipr3ocaaroa6wng4lddqyoxdvvssn2mj6sudyuphbhpj4v6djvgq"
 
 allowed_source_cidr = "80.20.74.17/32"

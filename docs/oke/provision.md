@@ -20,7 +20,7 @@ This page explains everything that command does, in order, and how to check each
 - [x] your current IP still matches `allowed_source_cidr` (`curl -4 -s https://ifconfig.me`)
 
 !!! warning "No confirmation prompt"
-    `make oke-up` runs `terraform apply -auto-approve`: it does not stop to ask whether the plan is right. Run `make plan` first if you want to review the changes.
+    `make oke-up` runs `tofu apply -auto-approve`: it does not stop to ask whether the plan is right. Run `make plan` first if you want to review the changes.
 
 The last lines of a successful run:
 
@@ -35,7 +35,7 @@ Ready: https://dinner.example.com
 
 Three internal targets check that the variables are not empty, and stop with a clear message otherwise:
 
-- `check-terraform`: `TF_VAR_tenancy_ocid`;
+- `check-tofu`: `TF_VAR_tenancy_ocid`;
 - `check-registry`: `OCIR_IMAGE`, `OCIR_USERNAME`, `OCIR_AUTH_TOKEN`;
 - `check-letsencrypt`: `ACME_EMAIL`, `CLOUDFLARE_API_TOKEN`.
 
@@ -45,14 +45,14 @@ Missing OCIR_AUTH_TOKEN (infra/.secrets.env or environment)
 
 They only check that a value exists, not that it is correct. A wrong token is detected later, by the service that rejects it.
 
-### 5.2 Terraform creates the infrastructure
+### 5.2 OpenTofu creates the infrastructure
 
 ```bash
-terraform -chdir=tf init
-terraform -chdir=tf apply -var-file=prod.tfvars -auto-approve
+tofu -chdir=tf init
+tofu -chdir=tf apply -var-file=prod.tfvars -auto-approve
 ```
 
-`-chdir=tf` runs Terraform inside `infra/tf/` while `make` stays in `infra/`, so the relative paths to the Kubernetes files keep working. Terraform builds a dependency graph and creates resources in parallel where it can:
+`-chdir=tf` runs OpenTofu inside `infra/tf/` while `make` stays in `infra/`, so the relative paths to the Kubernetes files keep working. OpenTofu builds a dependency graph and creates resources in parallel where it can:
 
 1. **VCN**, then the **Internet, NAT and Service gateways**, the **route tables**, the empty **security list** and the three **NSGs**. About one minute.
 2. The **subnets** and the **11 NSG rules**.
@@ -67,16 +67,16 @@ oci ce cluster list --compartment-id <compartment-ocid> --name dinner-roulette \
   --query 'data[].{name:name, state:"lifecycle-state", version:"kubernetes-version"}' --output table
 ```
 
-When Terraform is done, it prints its outputs: the cluster OCID, the region, the NSG of the load balancer and the reserved IP's address and OCID. The next steps read them with `terraform output -raw <name>`.
+When OpenTofu is done, it prints its outputs: the cluster OCID, the region, the NSG of the load balancer and the reserved IP's address and OCID. The next steps read them with `tofu output -raw <name>`.
 
 ### 5.3 The kubeconfig
 
 ```bash
 rm -f infra/kubeconfig
 oci ce cluster create-kubeconfig \
-  --cluster-id "$(terraform -chdir=tf output -raw cluster_id)" \
+  --cluster-id "$(tofu -chdir=tf output -raw cluster_id)" \
   --file infra/kubeconfig \
-  --region "$(terraform -chdir=tf output -raw region)" \
+  --region "$(tofu -chdir=tf output -raw region)" \
   --token-version 2.0.0
 KUBECONFIG=infra/kubeconfig kubectl config rename-context "<generated name>" oke
 ```
@@ -116,17 +116,17 @@ helm upgrade --install cert-manager jetstack/cert-manager --version v1.17.1 \
 helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --version 4.12.1 \
   --namespace ingress-nginx --create-namespace --kube-context oke --wait \
   --set controller.service.annotations."service\.beta\.kubernetes\.io/oci-load-balancer-security-list-management-mode"=None \
-  --set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$(terraform -chdir=tf output -raw lb_nsg_id)" \
-  --set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$(terraform -chdir=tf output -raw lb_reserved_ip)"
+  --set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$(tofu -chdir=tf output -raw lb_nsg_id)" \
+  --set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$(tofu -chdir=tf output -raw lb_reserved_ip)"
 ```
 
 The chart creates the controller Deployment and a Service named `ingress-nginx-controller` of type **LoadBalancer**. On OKE, the **cloud controller manager** (CCM) watches such Services and creates a real OCI Load Balancer for each of them. The three annotations tell it how:
 
 `service.beta.kubernetes.io/oci-load-balancer-security-list-management-mode: None`
-:   Do not edit any security list. By default the CCM would add rules to the subnet's security list, opening the listener ports to the internet. Here all filtering is done by NSGs managed by Terraform, so the CCM must leave the security lists alone.
+:   Do not edit any security list. By default the CCM would add rules to the subnet's security list, opening the listener ports to the internet. Here all filtering is done by NSGs managed by OpenTofu, so the CCM must leave the security lists alone.
 
 `oci.oraclecloud.com/oci-network-security-groups: <lb_nsg_id>`
-:   Attach the load balancer to the `dinner-lb` NSG. Terraform owns its rules: 443 from your CIDR in, everything to the nodes out.
+:   Attach the load balancer to the `dinner-lb` NSG. OpenTofu owns its rules: 443 from your CIDR in, everything to the nodes out.
 
 `oci.oraclecloud.com/reserved-ips: <address>`
 :   Use the reserved IP instead of a random one. The annotation takes the **address**, which `outputs.tf` reads from the OCID in `prod.tfvars`.
@@ -259,9 +259,9 @@ kubectl get pods -A
 
 ## If it stops halfway
 
-`make oke-up` is designed to be run again. Terraform only creates what is missing, `helm upgrade --install` upgrades in place, and the `kubectl apply` commands converge. Fix the cause, then run `make oke-up` again.
+`make oke-up` is designed to be run again. OpenTofu only creates what is missing, `helm upgrade --install` upgrades in place, and the `kubectl apply` commands converge. Fix the cause, then run `make oke-up` again.
 
-The most common stop is the node pool failing for lack of capacity. The cluster and the network stay in place. Change the shape in `prod.tfvars`, run `make apply`, which runs only Terraform, then `make oke-up`. See [Troubleshooting](../troubleshooting.md#node-pool-fails-with-work-request-exceeded-max-retry-count).
+The most common stop is the node pool failing for lack of capacity. The cluster and the network stay in place. Change the shape in `prod.tfvars`, run `make apply`, which runs only OpenTofu, then `make oke-up`. See [Troubleshooting](../troubleshooting.md#node-pool-fails-with-work-request-exceeded-max-retry-count).
 
 ## Without make
 
@@ -278,17 +278,17 @@ The most common stop is the node pool failing for lack of capacity. The cluster 
     OCIR_SERVER="${OCIR_IMAGE%%/*}"
     ```
 
-    **Terraform and kubeconfig**
+    **OpenTofu and kubeconfig**
 
     ```bash
-    terraform -chdir=tf init
-    terraform -chdir=tf apply -var-file=prod.tfvars -auto-approve
+    tofu -chdir=tf init
+    tofu -chdir=tf apply -var-file=prod.tfvars -auto-approve
 
     rm -f "$PWD/kubeconfig"
     oci ce cluster create-kubeconfig \
-      --cluster-id "$(terraform -chdir=tf output -raw cluster_id)" \
+      --cluster-id "$(tofu -chdir=tf output -raw cluster_id)" \
       --file "$PWD/kubeconfig" \
-      --region "$(terraform -chdir=tf output -raw region)" \
+      --region "$(tofu -chdir=tf output -raw region)" \
       --token-version 2.0.0
     KUBECONFIG="$PWD/kubeconfig" kubectl config rename-context \
       "$(KUBECONFIG="$PWD/kubeconfig" kubectl config current-context)" oke
@@ -307,8 +307,8 @@ The most common stop is the node pool failing for lack of capacity. The cluster 
     helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --version 4.12.1 \
       --namespace ingress-nginx --create-namespace --kube-context oke --wait \
       --set controller.service.annotations."service\.beta\.kubernetes\.io/oci-load-balancer-security-list-management-mode"=None \
-      --set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$(terraform -chdir=tf output -raw lb_nsg_id)" \
-      --set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$(terraform -chdir=tf output -raw lb_reserved_ip)"
+      --set controller.service.annotations."oci\.oraclecloud\.com/oci-network-security-groups"="$(tofu -chdir=tf output -raw lb_nsg_id)" \
+      --set controller.service.annotations."oci\.oraclecloud\.com/reserved-ips"="$(tofu -chdir=tf output -raw lb_reserved_ip)"
 
     kubectl --context oke wait --for=condition=established crd/clusterissuers.cert-manager.io --timeout=120s
     kubectl --context oke -n cert-manager create secret generic cloudflare-api-token \

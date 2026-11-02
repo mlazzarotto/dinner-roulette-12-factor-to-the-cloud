@@ -1,7 +1,7 @@
 # All targets run from infra/. `make -C infra ...`
-# Terraform lives in tf/ and is invoked with -chdir, so the k8s paths stay relative to infra/.
+# OpenTofu lives in tf/ and is invoked with -chdir, so the k8s paths stay relative to infra/.
 K8S := k8s
-TF := terraform -chdir=tf
+TF := tofu -chdir=tf
 
 CERT_MANAGER_VERSION := v1.17.1
 INGRESS_NGINX_VERSION := 4.12.1
@@ -25,31 +25,31 @@ OCIR_SERVER := $(firstword $(subst /, ,$(OCIR_IMAGE)))
 .PHONY: help fmt init plan apply \
 	oke-up oke-deploy oke-push oke-status oke-env oke-smoke oke-cidr oke-down \
 	mk-up mk-deploy mk-status mk-env mk-smoke mk-down \
-	check-context check-terraform check-registry check-letsencrypt \
+	check-context check-tofu check-registry check-letsencrypt \
 	db-init cnpg registry-secret
 
 help: ## List available targets
-	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, $$2) } END { print "Generale:"; printf "%s", line["gen"]; print "\nTerraform, da infra/tf/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
+	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, $$2) } END { print "Generale:"; printf "%s", line["gen"]; print "\nOpenTofu, da infra/tf/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
 
-# ---------------------------------------------------------------- Terraform
+# ---------------------------------------------------------------- OpenTofu
 
-fmt: ## Format the Terraform files
+fmt: ## Format the OpenTofu files
 	$(TF) fmt -recursive .
 
-init: ## Initialise the Terraform working directory
+init: ## Initialise the OpenTofu working directory
 	$(TF) init
 
-plan: ## Show the Terraform plan for prod.tfvars
+plan: ## Show the OpenTofu plan for prod.tfvars
 	$(TF) plan -var-file=prod.tfvars
 
-# Terraform only, no kubeconfig or addons. Useful after a partial `oke-up`.
-apply: check-terraform ## Apply prod.tfvars without the full bootstrap
+# OpenTofu only, no kubeconfig or addons. Useful after a partial `oke-up`.
+apply: check-tofu ## Apply prod.tfvars without the full bootstrap
 	$(TF) init
 	$(TF) apply -var-file=prod.tfvars -auto-approve
 
 # ---------------------------------------------------------------- OKE
 
-oke-up: check-terraform check-registry check-letsencrypt ## Create the cluster, the addons and deploy (~20 min)
+oke-up: check-tofu check-registry check-letsencrypt ## Create the cluster, the addons and deploy (~20 min)
 	$(TF) init
 	$(TF) apply -var-file=prod.tfvars -auto-approve
 	rm -f $(CURDIR)/kubeconfig
@@ -103,7 +103,7 @@ oke-smoke: ## Hit /suggestion over HTTPS
 	curl -sf https://dinner.alessandroperetti.dev/suggestion; echo
 
 # Rewrites tf/prod.tfvars, so a later `oke-up` cannot silently revert the old CIDR.
-oke-cidr: check-terraform ## Update the allowed source IP: make oke-cidr CIDR=1.2.3.4/32
+oke-cidr: check-tofu ## Update the allowed source IP: make oke-cidr CIDR=1.2.3.4/32
 	@test -n "$(CIDR)" || { echo "Usage: make oke-cidr CIDR=x.x.x.x/32"; exit 1; }
 	@case "$(CIDR)" in */*) ;; *) echo "CIDR must be a block, e.g. 1.2.3.4/32"; exit 1 ;; esac
 	sed -i.bak 's|^allowed_source_cidr.*|allowed_source_cidr = "$(CIDR)"|' tf/prod.tfvars
@@ -164,7 +164,7 @@ check-context:
 		*) echo "Internal target: pass CONTEXT=oke or CONTEXT=minikube"; exit 1 ;; \
 	esac
 
-check-terraform:
+check-tofu:
 	@test -n "$(TF_VAR_tenancy_ocid)" || { echo "Missing TF_VAR_tenancy_ocid (infra/.secrets.env)"; exit 1; }
 
 check-registry:

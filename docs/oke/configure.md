@@ -1,6 +1,6 @@
 # Step 3: Configure the repository
 
-At the end of this step, the repository describes your account: secrets in `infra/.secrets.env` (never committed), non-secret settings in `infra/tf/prod.tfvars`, and `make plan` shows what Terraform is about to create.
+At the end of this step, the repository describes your account: secrets in `infra/.secrets.env` (never committed), non-secret settings in `infra/tf/prod.tfvars`, and `make plan` shows what OpenTofu is about to create.
 
 **Time:** 10 minutes.
 
@@ -22,8 +22,8 @@ Fill in every value:
 
 | Variable | Used by | Value | From |
 |---|---|---|---|
-| `TF_VAR_tenancy_ocid` | Terraform (`apply`, `oke-up`, `oke-cidr`, `oke-down`) | Your tenancy OCID | [1.2](oci-account.md#12-collect-your-identifiers) |
-| `TF_VAR_ssh_public_key` | Terraform, optional | The content of e.g. `~/.ssh/id_ed25519.pub`, **without quotes** | Your machine |
+| `TF_VAR_tenancy_ocid` | OpenTofu (`apply`, `oke-up`, `oke-cidr`, `oke-down`) | Your tenancy OCID | [1.2](oci-account.md#12-collect-your-identifiers) |
+| `TF_VAR_ssh_public_key` | OpenTofu, optional | The content of e.g. `~/.ssh/id_ed25519.pub`, **without quotes** | Your machine |
 | `ACME_EMAIL` | `oke-up` | A real email address | [2.4](dns-tls.md#24-choose-the-acme-email) |
 | `CLOUDFLARE_API_TOKEN` | `oke-up` | The Cloudflare token | [2.3](dns-tls.md#23-create-the-cloudflare-api-token) |
 | `OCIR_USERNAME` | `oke-push`, `oke-deploy` | `<tenancy-namespace>/<username>` | [1.6](oci-account.md#16-work-out-your-registry-host-and-username) |
@@ -32,7 +32,7 @@ Fill in every value:
 
 Notes on individual values:
 
-- **`TF_VAR_` prefix.** Terraform automatically maps an environment variable `TF_VAR_<name>` to the input variable `<name>`. That is how the tenancy OCID and the SSH key reach Terraform without being written in `prod.tfvars`.
+- **`TF_VAR_` prefix.** OpenTofu automatically maps an environment variable `TF_VAR_<name>` to the input variable `<name>`. That is how the tenancy OCID and the SSH key reach OpenTofu without being written in `prod.tfvars`.
 - **SSH key.** It is registered on the worker node, but the node lives in a private subnet without a public IP, so you would need a bastion to use it. If you do not need it, **delete the line or comment it out**. Leaving the placeholder `ssh-ed25519 AAAA... you@laptop` in place makes OKE reject the node pool.
 - **`OCIR_IMAGE`** includes the tag. The registry host in it must match the region you push to. `make` derives the registry server for `docker login` and for the pull Secret from the first part of this value.
 
@@ -158,10 +158,10 @@ Plan: 25 to add, 0 to change, 0 to destroy.
 That is 12 network resources (VCN, three gateways, two route tables, two subnets, one security list, three NSGs), 11 NSG rules, the cluster and the node pool. Values such as the node image show as `(known after apply)`, because they depend on the cluster that does not exist yet.
 
 !!! note
-    `make plan` does not check `.secrets.env` first. If `TF_VAR_tenancy_ocid` is missing, Terraform prompts for `var.tenancy_ocid` interactively. Press ++ctrl+c++ and fix the file.
+    `make plan` does not check `.secrets.env` first. If `TF_VAR_tenancy_ocid` is missing, OpenTofu prompts for `var.tenancy_ocid` interactively. Press ++ctrl+c++ and fix the file.
 
 !!! danger "The state file is precious"
-    Terraform records what it created in `infra/tf/terraform.tfstate`, on your laptop. The file is git-ignored and blocked by the pre-commit hook, because it contains resource details. Without it, `make oke-down` cannot destroy anything, and you would have to delete the cluster and the network by hand in the Console. Back it up if you switch machines.
+    OpenTofu records what it created in `infra/tf/terraform.tfstate`, on your laptop. The file is git-ignored and blocked by the pre-commit hook, because it contains resource details. Without it, `make oke-down` cannot destroy anything, and you would have to delete the cluster and the network by hand in the Console. Back it up if you switch machines.
 
 ## Checklist
 
