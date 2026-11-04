@@ -18,10 +18,12 @@ jobs:
           chmod 600 ~/.kube/config
 
       # Same path as a local deploy: the Makefile reads these from the environment
-      # instead of infra/.secrets.env, which is not in the repo.
+      # instead of infra/.secrets.env, which is not in the repo. OCIR_IMAGE is derived from
+      # OCIR_USERNAME and the region, so only the region has to be passed.
       - name: Deploy
         env:
-          OCIR_IMAGE: ${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette:latest
+          TF_VAR_region: ${{ vars.OCIR_REGION }}
           OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
           OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
+          HOST: ${{ vars.HOST }}
         run: make -C infra oke-deploy

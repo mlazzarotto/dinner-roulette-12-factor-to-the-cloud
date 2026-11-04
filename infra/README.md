@@ -8,15 +8,25 @@ The stack is created and destroyed around a workshop session: `oke-up` before, `
 
 ## One-time setup
 
-Create the reserved IP once and put its OCID in `tf/prod.tfvars`:
+You need the `oci` CLI configured once (`oci setup config`). Everything else is derived from that profile: the tenancy OCID, the region, the compartment (the tenancy itself) and the Object Storage namespace.
 
 ```bash
-oci network public-ip create --lifetime RESERVED --compartment-id <compartment> --display-name dinner-lb
+cd infra
+
+make oke-bootstrap       # prints your tenancy, region, namespace and the token pages
+make oke-secrets         # copies .secrets.example to .secrets.env
+# fill in .secrets.env: HOST, ACME_EMAIL, CLOUDFLARE_API_TOKEN, OCIR_USERNAME, OCIR_AUTH_TOKEN
+
+make oke-tfvars          # derives region, your public CIDR, and the reserved IP if one exists
 ```
 
-Then copy `.secrets.example` to `.secrets.env` and fill it in: tenancy OCID, ACME email, Cloudflare token, `OCIR_IMAGE` and the registry credentials (`OCIR_USERNAME`, `OCIR_AUTH_TOKEN`). The SSH public key is optional. The last two are the same auth token as the `OCIR_AUTH_TOKEN` repository secret, and they create the `ocir` pull secret.
+Only two of those are OCI Console actions, because OCI exposes no API for them: the auth token (My profile → Auth tokens) and the Cloudflare API token.
 
-In Cloudflare, point an A record for `dinner.alessandroperetti.dev` at the reserved IP, DNS-only.
+In Cloudflare, point an A record for the value of `HOST` at the reserved IP, DNS-only. If `make oke-tfvars` found no reserved IP, create one once:
+
+```bash
+oci network public-ip create --lifetime RESERVED --display-name dinner-lb
+```
 
 ## Day-to-day
 
@@ -29,13 +39,14 @@ make oke-smoke           # hits /suggestion over HTTPS
 make oke-down            # workloads first, then destroy
 ```
 
-You are the only allowed source IP (`allowed_source_cidr`). When it changes:
+You are the only allowed source IP (`allowed_source_cidr`). When it changes, just regenerate, since `oke-tfvars` reads your current address:
 
 ```bash
-make oke-cidr CIDR=1.2.3.4/32
+make oke-tfvars
+make apply
 ```
 
-It rewrites the value in `tf/prod.tfvars` and applies, so the next `oke-up` does not revert it.
+Or set it explicitly with `make oke-cidr CIDR=1.2.3.4/32`, which rewrites the generated tfvars and applies, so the next `oke-up` does not revert it.
 
 `make oke-deploy` creates the namespace, the pull secret and the db-init ConfigMap, installs the CloudNativePG operator with helm, applies the kustomize overlay and waits for the rollout. The manifests live in `k8s/base`, with one overlay per environment in `k8s/overlays`.
 

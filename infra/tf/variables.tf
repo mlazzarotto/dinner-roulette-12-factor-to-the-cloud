@@ -1,6 +1,24 @@
-variable "region" { type = string }
-variable "tenancy_ocid" { type = string }
-variable "compartment_ocid" { type = string }
+variable "tenancy_ocid" {
+  type        = string
+  description = "Your tenancy OCID. Injected as TF_VAR_tenancy_ocid by the Makefile from ~/.oci/config."
+}
+
+variable "compartment_ocid" {
+  type        = string
+  default     = null
+  description = "Compartment for every resource. Defaults to the tenancy (the root compartment)."
+}
+
+variable "host" {
+  type        = string
+  description = "Public host name served by the load balancer, e.g. dinner.example.com. Used by the ingress and the smoke test."
+}
+
+variable "region" {
+  type        = string
+  default     = null
+  description = "OCI region identifier. Defaults to the region in your OCI profile."
+}
 
 variable "k8s_version" {
   type    = string
@@ -27,10 +45,13 @@ variable "node_count" {
   default = 1
 }
 
-# Created by hand once with `oci network public-ip create --lifetime RESERVED`. Kept outside
-# OpenTofu on purpose: it survives destroy and the Cloudflare A record never changes.
+# Optional. Created by hand once with `oci network public-ip create --lifetime RESERVED`, and
+# kept outside OpenTofu on purpose: it survives destroy, so the DNS record never changes.
+# Without it the load balancer gets an ephemeral address, and `oke-up` prints it so you can
+# point the A record at it. An ephemeral address changes on every `oke-up`.
 variable "lb_reserved_ip_ocid" {
-  type = string
+  type    = string
+  default = null
 }
 
 variable "allowed_source_cidr" {
