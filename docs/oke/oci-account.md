@@ -20,7 +20,7 @@ OCI identifies every resource with an **OCID**, a long string such as `ocid1.ten
 | Value | Where to find it in the Console | Example | Used for |
 |---|---|---|---|
 | Tenancy OCID | Profile menu (top right) → **Tenancy: <name>** → OCID → Copy | `ocid1.tenancy.oc1..aaaa…` | `TF_VAR_tenancy_ocid`, often also `compartment_ocid` |
-| Home region identifier | Tenancy details → **Home region** | `eu-milan-1` | `region` in `prod.tfvars`, the OCIR host name |
+| Home region identifier | Tenancy details → **Home region** | `eu-milan-1` | `region=` in `~/.oci/config`, applied automatically |
 | Object Storage namespace | Tenancy details → **Object storage namespace** | `axabcdef1234` | The OCIR path and username |
 | User OCID | Profile menu → **My profile** → OCID | `ocid1.user.oc1..aaaa…` | The API key configuration |
 | Username | Shown at the top of the Profile menu | `you@example.com` | The OCIR username |
@@ -29,7 +29,7 @@ The **Object Storage namespace**, also called the tenancy namespace, is a short 
 
 ## 1.3 Choose a compartment
 
-A **compartment** is a folder for resources, with its own access policies. The repository puts everything in the **root compartment**: `compartment_ocid` in `prod.tfvars` is the tenancy OCID itself. That is fine for a personal tenancy.
+A **compartment** is a folder for resources, with its own access policies. The repository puts everything in the **root compartment**: `compartment_ocid` defaults to the tenancy OCID itself. That is fine for a personal tenancy.
 
 To keep the workshop separate, create a compartment and use its OCID as `compartment_ocid` instead:
 
@@ -180,8 +180,8 @@ oci network public-ip create \
 
 Write both down:
 
-- the **`id`** goes into `lb_reserved_ip_ocid` in `infra/tf/prod.tfvars`;
-- the **`ip`** goes into your DNS A record in [step 2](dns-tls.md).
+- the **`ip`** goes into your DNS A record in [step 2](dns-tls.md);
+- the **`id`** needs no copying: `make oke-tfvars` picks it up if you name the IP `dinner-lb`. If you gave it another name, add `lb_reserved_ip_ocid = "…"` to `infra/tf/workshop.auto.tfvars`.
 
 **Why it is not managed by OpenTofu:** `tofu destroy` would delete it, and the next `oke-up` would get a different address. OpenTofu only **reads** it through a data source (`infra/tf/outputs.tf`) to turn the OCID into an address. `make oke-up` passes that address to the ingress-nginx Service in the `oci.oraclecloud.com/reserved-ips` annotation, which takes an IP address, not an OCID.
 
@@ -219,7 +219,7 @@ These take a minute and avoid the most common failure of the first `oke-up`.
 oci ce cluster-options get --cluster-option-id all --query 'data."kubernetes-versions"'
 ```
 
-If `v1.34.10` (or the value you set) is not in the list, put a listed version in `prod.tfvars` as `k8s_version = "v1.xx.y"`.
+If `v1.34.10` (or the value you set) is not in the list, set a listed version with `TF_VAR_k8s_version="v1.xx.y"` in `infra/.secrets.env`.
 
 **Is there capacity for the node shape?** OpenTofu places the node in the first availability domain. Ask OCI whether it can host the shape right now:
 

@@ -113,17 +113,23 @@ make mk-deploy
 
 **Fix.** In the Console, under **My profile → API keys**, compare the fingerprint with the `fingerprint=` line. Upload the public key again if needed. Check the user and tenancy OCIDs, and that your clock is synchronised.
 
-### `Missing TF_VAR_tenancy_ocid (infra/.secrets.env)`
+### `Missing ~/.oci/config`
 
-**Cause.** `infra/.secrets.env` does not exist, the variable is empty, or `make` is running in another directory, where the file is not found.
+**Cause.** The OCI CLI profile does not exist, so `make` cannot read the tenancy OCID and the region, and the `oci` CLI cannot authenticate either.
 
-**Fix.** Run from `infra/`, or use `make -C infra …`. Create the file from `.secrets.example` ([step 3](oke/configure.md)).
+**Fix.** Create it with `oci setup config`, which asks for your user OCID, tenancy OCID and region, and generates a key pair. Then upload the public key under **My profile → API keys**. Check it worked with `make oke-bootstrap`.
 
-### OpenTofu asks for `var.tenancy_ocid`
+### `~/.oci/config has no 'tenancy=' line in profile [DEFAULT]`
 
-**Cause.** Same as above, with `make plan`, which does not run the variable checks.
+**Cause.** The file exists but is malformed, or the profile name differs. `make` reads the profile named by `OCI_CLI_PROFILE`, `DEFAULT` otherwise.
 
-**Fix.** Press ++ctrl+c++ and fix `infra/.secrets.env`.
+**Fix.** Compare with `infra/.secrets.example`'s comments, or re-run `oci setup config`. To use another profile: `export OCI_CLI_PROFILE=myprofile`.
+
+### OpenTofu asks for `var.tenancy_ocid` or `var.allowed_source_cidr`
+
+**Cause.** You ran `tofu` directly instead of `make`, so nothing read `~/.oci/config` and `workshop.auto.tfvars` was not loaded.
+
+**Fix.** Press ++ctrl+c++ and use `make plan`, `make apply`, `make oke-up`. Generate the tfvars first with `make oke-tfvars` if you have not.
 
 ### Node pool fails with "Work request exceeded max retry count"
 
@@ -133,18 +139,18 @@ make mk-deploy
 
 **Fix.** The cluster and the network are fine and stay in place.
 
-1. Change the shape in `infra/tf/prod.tfvars`, for example:
+1. Change the shape, adding these lines to `infra/.secrets.env`:
 
-    ```hcl
-    node_shape      = "VM.Standard.E4.Flex"   # or E3.Flex, E5.Flex
-    node_ocpus      = 1
-    node_memory_gbs = 8
+    ```bash
+    TF_VAR_node_shape=VM.Standard.E4.Flex   # or E3.Flex, E5.Flex
+    TF_VAR_node_ocpus=1
+    TF_VAR_node_memory_gbs=8
     ```
 
 2. Make sure the image architecture matches the new shape ([step 4](oke/image.md#make-sure-the-architecture-matches)).
 3. Run `make apply`, which runs only OpenTofu, then `make oke-up`.
 
-If OpenTofu complains about a node pool that no longer exists, refresh the state first: `tofu -chdir=tf apply -refresh-only -var-file=prod.tfvars -auto-approve`. To check capacity before trying, use the capacity report from [step 1.9](oke/oci-account.md#19-optional-checks). Retrying the same shape later can also work.
+If OpenTofu complains about a node pool that no longer exists, refresh the state first: `tofu -chdir=tf apply -refresh-only -auto-approve`. To check capacity before trying, use the capacity report from [step 1.9](oke/oci-account.md#19-optional-checks). Retrying the same shape later can also work.
 
 ### The node pool is rejected because of the SSH key
 
@@ -156,7 +162,7 @@ If OpenTofu complains about a node pool that no longer exists, refresh the state
 
 **Cause.** No OKE node image matched the filters in `cluster.tf`: OKE image, cluster version, Oracle Linux 9, no GPU, the shape's architecture. The list is empty, and taking its last element fails. The usual reason is a `k8s_version` that OKE no longer offers images for.
 
-**Fix.** List the supported versions and set a current one in `prod.tfvars`:
+**Fix.** List the supported versions and set a current one with `TF_VAR_k8s_version="v1.xx.y"` in `infra/.secrets.env`:
 
 ```bash
 oci ce cluster-options get --cluster-option-id all --query 'data."kubernetes-versions"'

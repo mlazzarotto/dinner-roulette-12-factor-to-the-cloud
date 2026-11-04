@@ -33,14 +33,16 @@ Ready: https://dinner.example.com
 
 ### 5.1 Pre-flight checks
 
-Three internal targets check that the variables are not empty, and stop with a clear message otherwise:
+Internal targets check that what is not derivable is present, and stop with a clear message otherwise:
 
-- `check-tofu`: `TF_VAR_tenancy_ocid`;
-- `check-registry`: `OCIR_IMAGE`, `OCIR_USERNAME`, `OCIR_AUTH_TOKEN`;
-- `check-letsencrypt`: `ACME_EMAIL`, `CLOUDFLARE_API_TOKEN`.
+- `check-oci`: `~/.oci/config`, and the `tenancy=` line in it;
+- `check-tfvars`: `tf/workshop.auto.tfvars`, the file `make oke-tfvars` writes;
+- `check-registry`: `OCIR_USERNAME`, `OCIR_AUTH_TOKEN`, and that the registry host resolves;
+- `check-letsencrypt`: `ACME_EMAIL`, `CLOUDFLARE_API_TOKEN`;
+- `check-host`: `HOST`.
 
 ```text
-Missing OCIR_AUTH_TOKEN (infra/.secrets.env or environment)
+Missing OCIR_AUTH_TOKEN (infra/.secrets.env)
 ```
 
 They only check that a value exists, not that it is correct. A wrong token is detected later, by the service that rejects it.
@@ -49,7 +51,7 @@ They only check that a value exists, not that it is correct. A wrong token is de
 
 ```bash
 tofu -chdir=tf init
-tofu -chdir=tf apply -var-file=prod.tfvars -auto-approve
+tofu -chdir=tf apply -auto-approve
 ```
 
 `-chdir=tf` runs OpenTofu inside `infra/tf/` while `make` stays in `infra/`, so the relative paths to the Kubernetes files keep working. OpenTofu builds a dependency graph and creates resources in parallel where it can:
@@ -129,7 +131,7 @@ The chart creates the controller Deployment and a Service named `ingress-nginx-c
 :   Attach the load balancer to the `dinner-lb` NSG. OpenTofu owns its rules: 443 from your CIDR in, everything to the nodes out.
 
 `oci.oraclecloud.com/reserved-ips: <address>`
-:   Use the reserved IP instead of a random one. The annotation takes the **address**, which `outputs.tf` reads from the OCID in `prod.tfvars`.
+:   Use the reserved IP instead of a random one. The annotation takes the **address**, which `outputs.tf` reads from `lb_reserved_ip_ocid`, or from the ephemeral address when no reserved IP is configured.
 
 The load balancer is placed in the public subnet, because the cluster's `service_lb_subnet_ids` option points there. It gets a TCP listener on 80 and one on 443, each forwarding to the matching NodePort on the worker node, plus health checks on the node. The listeners pass TLS through: nginx terminates it in the cluster.
 
@@ -172,7 +174,9 @@ kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl
 make registry-secret                      # the ocir pull Secret, see step 4
 make cnpg CONTEXT=oke                     # Helm: CloudNativePG operator 0.29.1 in cnpg-system
 make db-init CONTEXT=oke                  # ConfigMap db-init from ../db/init.sql
-kubectl kustomize k8s/overlays/oke | sed "s|__OCIR_IMAGE__|$OCIR_IMAGE|" | kubectl --context oke apply -f -
+kubectl kustomize k8s/overlays/oke \
+  | sed -e "s|__OCIR_IMAGE__|$OCIR_IMAGE|" -e "s|__HOST__|$HOST|" \
+  | kubectl --context oke apply -f -
 kubectl --context oke -n dinner rollout status deploy/app --timeout=300s
 ```
 
@@ -261,7 +265,7 @@ kubectl get pods -A
 
 `make oke-up` is designed to be run again. OpenTofu only creates what is missing, `helm upgrade --install` upgrades in place, and the `kubectl apply` commands converge. Fix the cause, then run `make oke-up` again.
 
-The most common stop is the node pool failing for lack of capacity. The cluster and the network stay in place. Change the shape in `prod.tfvars`, run `make apply`, which runs only OpenTofu, then `make oke-up`. See [Troubleshooting](../troubleshooting.md#node-pool-fails-with-work-request-exceeded-max-retry-count).
+The most common stop is the node pool failing for lack of capacity. The cluster and the network stay in place. Change `node_shape` (as a `TF_VAR_node_shape` line in `.secrets.env`), run `make apply`, which runs only OpenTofu, then `make oke-up`. See [Troubleshooting](../troubleshooting.md#node-pool-fails-with-work-request-exceeded-max-retry-count).
 
 ## Without make
 
@@ -282,7 +286,7 @@ The most common stop is the node pool failing for lack of capacity. The cluster 
 
     ```bash
     tofu -chdir=tf init
-    tofu -chdir=tf apply -var-file=prod.tfvars -auto-approve
+    tofu -chdir=tf apply -auto-approve
 
     rm -f "$PWD/kubeconfig"
     oci ce cluster create-kubeconfig \
@@ -334,7 +338,9 @@ The most common stop is the node pool failing for lack of capacity. The cluster 
     kubectl --context oke -n dinner create configmap db-init \
       --from-file=init.sql=../db/init.sql --dry-run=client -o yaml | kubectl --context oke apply -f -
 
-    kubectl kustomize k8s/overlays/oke | sed "s|__OCIR_IMAGE__|$OCIR_IMAGE|" | kubectl --context oke apply -f -
+    kubectl kustomize k8s/overlays/oke \
+  | sed -e "s|__OCIR_IMAGE__|$OCIR_IMAGE|" -e "s|__HOST__|$HOST|" \
+  | kubectl --context oke apply -f -
     kubectl --context oke -n dinner rollout status deploy/app --timeout=300s
     ```
 

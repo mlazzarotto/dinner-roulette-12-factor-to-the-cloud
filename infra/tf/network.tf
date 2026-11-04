@@ -2,25 +2,28 @@ data "oci_identity_availability_domains" "ads" {
   compartment_id = var.tenancy_ocid
 }
 
+# Single-AD regions such as eu-milan-1 are the common case for this workshop, and the first
+# AD is the only one. region_subscription is not exposed per AD by the provider, so there is
+# no reliable way to "pick the AD that has capacity": if A1.Flex is short, switch node_shape.
 locals {
   ad = data.oci_identity_availability_domains.ads.availability_domains[0].name
 }
 
 resource "oci_core_vcn" "main" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   cidr_blocks    = ["10.0.0.0/16"]
   display_name   = "dinner-roulette"
   dns_label      = "dinner"
 }
 
 resource "oci_core_internet_gateway" "igw" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-igw"
 }
 
 resource "oci_core_nat_gateway" "nat" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-nat"
 }
@@ -34,7 +37,7 @@ data "oci_core_services" "all" {
 }
 
 resource "oci_core_service_gateway" "svc" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-svc"
 
@@ -45,7 +48,7 @@ resource "oci_core_service_gateway" "svc" {
 
 # Public subnet: only the load balancer lives here.
 resource "oci_core_route_table" "public" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-public-rt"
 
@@ -58,7 +61,7 @@ resource "oci_core_route_table" "public" {
 
 # Private subnet: nodes. Egress goes through NAT, OCI API calls through the service gateway.
 resource "oci_core_route_table" "private" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-private-rt"
 
@@ -68,15 +71,16 @@ resource "oci_core_route_table" "private" {
     network_entity_id = oci_core_nat_gateway.nat.id
   }
 
+  # Looked up, not hardcoded: "all-lin-services-..." is Milan's region key and fails elsewhere.
   route_rules {
-    destination       = "all-lin-services-in-oracle-services-network"
+    destination       = data.oci_core_services.all.services[0].cidr_block
     destination_type  = "SERVICE_CIDR_BLOCK"
     network_entity_id = oci_core_service_gateway.svc.id
   }
 }
 
 resource "oci_core_subnet" "public" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   cidr_block     = "10.0.0.0/24"
   display_name   = "dinner-lb"
@@ -88,7 +92,7 @@ resource "oci_core_subnet" "public" {
 }
 
 resource "oci_core_subnet" "private" {
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_id
   vcn_id                     = oci_core_vcn.main.id
   cidr_block                 = "10.0.1.0/24"
   display_name               = "dinner-nodes"
@@ -101,25 +105,25 @@ resource "oci_core_subnet" "private" {
 # Empty on purpose: with security-list-management-mode None the CCM would otherwise leave
 # 0.0.0.0/0 open on the public subnet.
 resource "oci_core_security_list" "public_empty" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-lb-empty"
 }
 
 resource "oci_core_network_security_group" "lb" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-lb"
 }
 
 resource "oci_core_network_security_group" "nodes" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-nodes"
 }
 
 resource "oci_core_network_security_group" "endpoint" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "dinner-endpoint"
 }

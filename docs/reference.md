@@ -10,7 +10,7 @@ Run from `infra/`, or with `make -C infra <target>` from the repository root. `m
 |---|---|
 | `fmt` | `tofu fmt -recursive` on `infra/tf/` |
 | `init` | `tofu init`: downloads the OCI provider pinned by `.terraform.lock.hcl` |
-| `plan` | Shows what `apply` would change, for `prod.tfvars` |
+| `plan` | Shows what `apply` would change |
 | `apply` | `init` plus `apply -auto-approve`. OpenTofu only, no kubeconfig and no add-ons. Useful after a partial `oke-up` |
 
 ### OKE
@@ -23,7 +23,7 @@ Run from `infra/`, or with `make -C infra <target>` from the repository root. `m
 | `oke-status` | Pods, Services, Ingress, PVCs and certificates in `dinner` |
 | `oke-env` | Prints the `KUBECONFIG` export and `use-context oke`. Use as `eval "$(make oke-env)"` |
 | `oke-smoke` | `curl -sf https://<host>/suggestion` |
-| `oke-cidr` | `make oke-cidr CIDR=x.x.x.x/32`: rewrites `allowed_source_cidr` in `prod.tfvars` and applies |
+| `oke-cidr` | `make oke-cidr CIDR=x.x.x.x/32`: rewrites `allowed_source_cidr` in the generated tfvars and applies |
 | `oke-down` | Deletes the workloads, then `tofu destroy`, then lists leftover load balancers |
 
 ### minikube
@@ -46,25 +46,30 @@ These are called by the targets above. You can run them on their own when you ne
 | `cnpg CONTEXT=<ctx>` | Installs or upgrades the CloudNativePG operator with Helm, on `oke` or `minikube` |
 | `db-init CONTEXT=<ctx>` | Creates or updates the `db-init` ConfigMap from `db/init.sql`, on `oke` or `minikube` |
 | `registry-secret` | Creates or updates the `ocir` pull Secret on OKE |
-| `check-tofu`, `check-registry`, `check-letsencrypt` | Stop early when a required variable is empty |
+| `oke-bootstrap` | Prints your tenancy, region, namespace and the token pages |
+| `oke-secrets` | Copies `.secrets.example` to `.secrets.env`, never overwriting |
+| `oke-tfvars` | Writes `infra/tf/workshop.auto.tfvars` from your account |
+| `check-oci`, `check-tfvars`, `check-registry`, `check-letsencrypt`, `check-host` | Stop early when the OCI profile or a required variable is missing |
 | `check-context` | Rejects a `CONTEXT` other than `oke` or `minikube` |
 
 ## Variables
 
 | Variable | Local source | CI source | Used by |
 |---|---|---|---|
-| `TF_VAR_tenancy_ocid` | `infra/.secrets.env` | none | OpenTofu |
+| `HOST` | `infra/.secrets.env` | variable `HOST` | `oke-deploy`, `oke-up`, `oke-smoke` |
 | `TF_VAR_ssh_public_key` | `infra/.secrets.env`, optional | none | OpenTofu, node pool |
 | `ACME_EMAIL` | `infra/.secrets.env` | none | `oke-up`, ClusterIssuer |
 | `CLOUDFLARE_API_TOKEN` | `infra/.secrets.env` | none | `oke-up`, Secret `cloudflare-api-token` |
 | `OCIR_USERNAME` | `infra/.secrets.env` | secret `OCIR_USERNAME` | `oke-push`, `registry-secret`, `build` workflow |
 | `OCIR_AUTH_TOKEN` | `infra/.secrets.env` | secret `OCIR_AUTH_TOKEN` | `oke-push`, `registry-secret`, `build` workflow |
-| `OCIR_IMAGE` | `infra/.secrets.env` | built from the variables `OCIR_REGION` and `OCIR_NAMESPACE` | `oke-push`, `oke-deploy` |
+| `OCIR_IMAGE` | derived from `OCIR_USERNAME` and the region, optional override | built from the variables `OCIR_REGION` and `OCIR_NAMESPACE` | `oke-push`, `oke-deploy` |
+| `TF_VAR_tenancy_ocid` | `tenancy=` in `~/.oci/config` | none | OpenTofu |
+| `TF_VAR_region` | `region=` in `~/.oci/config` | none | OpenTofu, the OCIR host |
 | `KUBECONFIG` | set by the `Makefile` | from the secret `KUBECONFIG_B64` | every `kubectl` and `helm` call |
 | `CIDR` | command line | none | `oke-cidr` |
 | `CONTEXT` | set by the calling target | none | `cnpg`, `db-init` |
 
-OpenTofu inputs are listed in [step 3](oke/configure.md#32-edit-infratfprodtfvars).
+OpenTofu inputs are listed in [step 3](oke/configure.md#32-run-make-oke-tfvars).
 
 ## Pinned versions
 
