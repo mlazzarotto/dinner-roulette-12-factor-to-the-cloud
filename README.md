@@ -56,7 +56,7 @@ The server listens on port 8080. The database is created and seeded by [`db/init
 ├── Dockerfile               # multi-stage build: tests and tsc, then a slim runtime image
 ├── docker-compose.yml       # the plain Docker environment
 ├── .githooks/pre-commit     # blocks secrets and OpenTofu state, runs the tests
-├── .github/workflows/       # build, deploy, pages
+├── .github/workflows/       # build, release, deploy, pages
 ├── docs/                    # the step-by-step guide (MkDocs Material)
 └── infra/
     ├── Makefile             # every command used in the guide

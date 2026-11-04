@@ -89,7 +89,8 @@ Both environments share `infra/k8s/base`. The differences live in small overlays
 ├── .githooks/pre-commit     # blocks secrets and OpenTofu state, runs the tests
 ├── .github/workflows/
 │   ├── build.yml            # tests, then multi-arch image pushed to OCIR (on push to main)
-│   ├── deploy.yml           # manual deploy to OKE
+│   ├── release.yml          # release-please; on a release, push :<version> and deploy it
+│   ├── deploy.yml           # manual deploy of :latest to OKE
 │   └── pages.yml            # publishes this guide
 ├── docs/                    # this guide (MkDocs Material)
 └── infra/

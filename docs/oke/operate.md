@@ -40,6 +40,24 @@ kubectl --context oke -n dinner rollout undo deploy/app        # back to the pre
 
 Pass `OCIR_IMAGE` **as a make argument**, after the target, as above. Variables given on the command line override the file. An environment variable (`OCIR_IMAGE=… make oke-deploy`) would not, because the value in `.secrets.env` wins over the environment.
 
+### With a release-please version
+
+The `release` workflow cuts a semver tag and deploys that image. `app.yaml` stays `image: __OCIR_IMAGE__`. The registry path is still filled in at deploy time, from `OCIR_REGION` and `OCIR_NAMESPACE`. Only the tag changes, from `latest` to the version release-please just published (`1.1.0`). Kubernetes sees a different image string and rolls the Deployment out.
+
+```yaml title=".github/workflows/release.yml"
+--8<-- ".github/workflows/release.yml"
+```
+
+What happens, push by push:
+
+1. A push to `main` whose message starts with `feat:` or `fix:` makes release-please open or update a release PR. That PR only bumps `package.json` (and `package-lock.json`) and writes `CHANGELOG.md`. `build.yml` still pushes `:<sha>` and `:latest`. The cluster does not move.
+2. Merging the release PR creates the GitHub Release and the tag `v1.1.0`. The `publish` job checks out that commit, pushes `dinner-roulette:1.1.0` and runs `make oke-deploy` with `OCIR_IMAGE` set to `…/dinner-roulette:1.1.0`.
+3. A push that is not a conventional commit, or that only updates the open release PR, leaves `release_created` false. The `publish` job is skipped.
+
+`1.0.0` in `.release-please-manifest.json` is the last released version, matching `package.json`. The next release PR starts from the conventional commits after that. The repository setting **Allow GitHub Actions to create and approve pull requests** must be on, otherwise release-please cannot open the PR.
+
+The `publish` job reaches the cluster the same way as the manual `deploy` workflow, so the three conditions below apply to it too. If the cluster is down, the image is still in OCIR under the version tag. Deploy it later with `make oke-deploy OCIR_IMAGE="…/dinner-roulette:1.1.0"`.
+
 ## Read the logs
 
 ```bash
@@ -126,7 +144,7 @@ The target:
 
 ## Deploy from GitHub Actions
 
-The repository has a manual `deploy` workflow:
+The repository has a manual `deploy` workflow, which applies `:latest`. Merging a release PR deploys the version tag instead, through the `release` workflow above.
 
 ```yaml title=".github/workflows/deploy.yml"
 --8<-- ".github/workflows/deploy.yml"
