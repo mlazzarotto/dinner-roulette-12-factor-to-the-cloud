@@ -1,6 +1,6 @@
 # Step 4: Publish the image to OCIR
 
-At the end of this step, the app image is in your tenancy's private registry, at the path in `OCIR_IMAGE`, for the CPU architecture of your node.
+At the end of this step, the app image is in your tenancy's private registry, at the path `make` derives from `OCIR_USERNAME`, for the CPU architecture of your node.
 
 **Time:** 5 to 10 minutes.
 
@@ -29,12 +29,13 @@ What it does:
 
 ### Configure the repository on GitHub
 
-The workflow reads two repository **variables** and two **secrets**:
+The workflow reads three repository **variables** and two **secrets**. The `deploy` workflow additionally reads `HOST`:
 
 | Name | Kind | Value |
 |---|---|---|
 | `OCIR_REGION` | variable | Region identifier, e.g. `eu-milan-1` |
 | `OCIR_NAMESPACE` | variable | Your tenancy's Object Storage namespace |
+| `HOST` | variable | The host name you serve, used by `deploy` |
 | `OCIR_USERNAME` | secret | `<tenancy-namespace>/<username>` |
 | `OCIR_AUTH_TOKEN` | secret | The auth token from step 1.5 |
 
@@ -43,6 +44,7 @@ Set them in **Settings → Secrets and variables → Actions**, or with the GitH
 ```bash
 gh variable set OCIR_REGION    --body eu-milan-1
 gh variable set OCIR_NAMESPACE --body <tenancy-namespace>
+gh variable set HOST           --body dinner.example.com
 gh secret   set OCIR_USERNAME  --body '<tenancy-namespace>/<username>'
 gh secret   set OCIR_AUTH_TOKEN          # prompts for the value, so it stays out of your shell history
 ```
@@ -73,7 +75,7 @@ make oke-push
 The target runs three commands:
 
 ```bash
-printf '%s' "$OCIR_AUTH_TOKEN" | docker login "<registry host from OCIR_IMAGE>" -u "$OCIR_USERNAME" --password-stdin
+printf '%s' "$OCIR_AUTH_TOKEN" | docker login "<region>.ocir.io" -u "$OCIR_USERNAME" --password-stdin
 docker build --build-arg COMMIT_SHA="$(git -C .. rev-parse --short=7 HEAD)" -t "$OCIR_IMAGE" ..
 docker push "$OCIR_IMAGE"
 ```

@@ -12,7 +12,7 @@ Steps 1 to 4 are done **once**. Steps 5 to 7 are the cycle you repeat for every 
 |---|---|---|
 | [1. Oracle Cloud account](oci-account.md) | API key, auth token, reserved IP, your source IP | OpenTofu, the OCI CLI and Docker can talk to Oracle |
 | [2. Domain and TLS](dns-tls.md) | Cloudflare zone, A record, API token | A hostname pointing at your reserved IP, and a token for cert-manager |
-| [3. Configure the repository](configure.md) | `infra/.secrets.env`, `infra/tf/prod.tfvars`, the hostname | The repository describes your account and domain |
+| [3. Configure the repository](configure.md) | `infra/.secrets.env`, `make oke-tfvars`, `HOST` | The repository describes your account and domain |
 | [4. Publish the image](image.md) | Push the app image to OCIR | An image the cluster can pull |
 | [5. Bring it up](provision.md) | `make oke-up` | Cluster, add-ons, database and app, about 20 minutes |
 | [6. Day-2 operations](operate.md) | Status, redeploys, logs, database, IP changes, CI | A running service you can change |
@@ -127,7 +127,7 @@ About 20 minutes from nothing. Running it again on an existing cluster takes a f
 **Worker node: free or paid, depending on the shape.**
 
 - `VM.Standard.A1.Flex` (Ampere, arm64) is covered by Always Free up to **2 OCPUs and 12 GB of memory in total per tenancy**, in your **home region** only. It used to be 4 OCPUs and 24 GB; Oracle has enforced the lower limit since 18 August 2026. The repository's default (`variables.tf`: 2 OCPUs, 12 GB) uses exactly that allowance. A1 capacity is often exhausted, though, and then the node pool cannot be created. See [Troubleshooting](../troubleshooting.md#node-pool-fails-with-work-request-exceeded-max-retry-count).
-- `VM.Standard.E3.Flex`, `E4.Flex` and `E5.Flex` (AMD, amd64) are paid and usually available. `infra/tf/prod.tfvars` currently uses `E3.Flex` with 1 OCPU and 8 GB for that reason.
+- `VM.Standard.E3.Flex`, `E4.Flex` and `E5.Flex` (AMD, amd64) are paid and usually available. Use `TF_VAR_node_shape=VM.Standard.E3.Flex` with `TF_VAR_node_ocpus=1` and `TF_VAR_node_memory_gbs=8` in `infra/.secrets.env` if A1.Flex has no capacity.
 
 **Storage.** The node's boot volume (about 50 GB) and the PostgreSQL volume (1 GiB requested, rounded up to the 50 GB minimum) count against the 200 GB of Always Free block storage.
 

@@ -109,16 +109,16 @@ make oke-cidr CIDR="$(curl -4 -s https://ifconfig.me)/32"
 The target:
 
 1. checks that `CIDR` is set and contains a `/`;
-2. rewrites the `allowed_source_cidr` line in `tf/prod.tfvars`, so a later `oke-up` does not put the old value back;
+2. rewrites the `allowed_source_cidr` line in `tf/workshop.auto.tfvars`, so a later `oke-up` does not put the old value back;
 3. runs `tofu apply`, which updates the two NSG rules in place in a few seconds.
 
-`prod.tfvars` is tracked by git, so the change shows up in `git status`. Commit it or not, as you prefer.
+`workshop.auto.tfvars` is git-ignored, because it describes your account. Nothing to commit. Running `make oke-tfvars` does the same thing from your current public address, without typing the CIDR.
 
 ## Scale and resize
 
 **More app replicas.** `kubectl --context oke -n dinner scale deploy/app --replicas=2` works, since votes live in the database. The manifest says `replicas: 1`, though, so the next `make oke-deploy` goes back to one. Change `app.yaml` to make it permanent.
 
-**More nodes.** Set `node_count = 2` in `prod.tfvars` and run `make apply`. OKE adds a node to the pool.
+**More nodes.** Add `TF_VAR_node_count=2` to `.secrets.env` and run `make apply`. OKE adds a node to the pool.
 
 **Bigger nodes.** Changing `node_shape`, `node_ocpus` or `node_memory_gbs` updates the node pool, but OKE applies node pool changes only to **new** nodes. Basic clusters do not support automatic node cycling, so existing nodes keep their old size until they are replaced. For this ephemeral stack, the simplest way is `make oke-down` followed by `make oke-up`.
 
