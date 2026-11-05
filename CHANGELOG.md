@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/compare/v1.1.0...v1.2.0) (2026-11-05)
+
+
+### Features
+
+* **make:** show usage examples in make help ([bfba7ea](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/commit/bfba7eafdc5a0fc3577933b05b60e73e4326790b))
+
 ## [1.1.0](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/compare/v1.0.0...v1.1.0) (2026-11-05)
 
 
