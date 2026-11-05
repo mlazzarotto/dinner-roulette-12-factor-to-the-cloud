@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/compare/v1.2.0...v1.3.0) (2026-11-05)
+
+
+### Features
+
+* **ui:** serve a curl cheat sheet on GET / ([2082b15](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/commit/2082b15dd860510f143588710eb744861cd25fbb))
+
 ## [1.2.0](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/compare/v1.1.0...v1.2.0) (2026-11-05)
 
 
