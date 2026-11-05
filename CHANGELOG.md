@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/compare/v1.3.0...v1.3.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* title ([9b829b5](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/commit/9b829b57329b7cd1d3158f70ab3b2ebbc3e48f72))
+
 ## [1.3.0](https://github.com/mlazzarotto/dinner-roulette-12-factor-to-the-cloud/compare/v1.2.0...v1.3.0) (2026-11-05)
 
 
