@@ -60,11 +60,11 @@ These are called by the targets above. You can run them on their own when you ne
 | `TF_VAR_ssh_public_key` | `infra/.secrets.env`, optional | none | OpenTofu, node pool |
 | `ACME_EMAIL` | `infra/.secrets.env` | none | `oke-up`, ClusterIssuer |
 | `CLOUDFLARE_API_TOKEN` | `infra/.secrets.env` | none | `oke-up`, Secret `cloudflare-api-token` |
-| `OCIR_USERNAME` | `infra/.secrets.env` | secret `OCIR_USERNAME` | `oke-push`, `registry-secret`, `build` workflow |
-| `OCIR_AUTH_TOKEN` | `infra/.secrets.env` | secret `OCIR_AUTH_TOKEN` | `oke-push`, `registry-secret`, `build` workflow |
-| `OCIR_IMAGE` | derived from `OCIR_USERNAME` and the region, optional override | built from the variables `OCIR_REGION` and `OCIR_NAMESPACE` | `oke-push`, `oke-deploy` |
+| `OCIR_USERNAME` | `infra/.secrets.env` | secret `OCIR_USERNAME` | `oke-push`, `registry-secret`, `build` and `release` workflows |
+| `OCIR_AUTH_TOKEN` | `infra/.secrets.env` | secret `OCIR_AUTH_TOKEN` | `oke-push`, `registry-secret`, `build` and `release` workflows |
+| `OCIR_IMAGE` | derived from `OCIR_USERNAME` and the region, optional override | derived the same way from the variables `OCIR_REGION` and `OCIR_USERNAME`; tag `latest` in `deploy`, the release version in `release` | `oke-push`, `oke-deploy` |
 | `TF_VAR_tenancy_ocid` | `tenancy=` in `~/.oci/config` | none | OpenTofu |
-| `TF_VAR_region` | `region=` in `~/.oci/config` | none | OpenTofu, the OCIR host |
+| `TF_VAR_region` | `region=` in `~/.oci/config` | variable `OCIR_REGION` | OpenTofu, the OCIR host, `deploy` and `release` workflows |
 | `KUBECONFIG` | set by the `Makefile` | from the secret `KUBECONFIG_B64` | every `kubectl` and `helm` call |
 | `CIDR` | command line | none | `oke-cidr` |
 | `CONTEXT` | set by the calling target | none | `cnpg`, `db-init` |
