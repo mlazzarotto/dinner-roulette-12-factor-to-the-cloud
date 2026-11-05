@@ -67,7 +67,7 @@ LB_COMPARTMENT := $(or $(LB_COMPARTMENT),$(TF_VAR_compartment_ocid),$(TF_VAR_ten
 	db-init cnpg registry-secret
 
 help: ## List available targets
-	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, $$2) } END { print "Generale:"; printf "%s", line["gen"]; print "\nOpenTofu, da infra/tf/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
+	@awk 'BEGIN { FS = ":.*## " } /^[a-zA-Z0-9_.-]+:.*## / { n = $$1; d = $$2; x = ""; if (match(d, / @ /)) { x = substr(d, RSTART + 3); d = substr(d, 1, RSTART - 1) } if (n == "help") g = "gen"; else if (n ~ /^oke-/) g = "oke"; else if (n ~ /^mk-/) g = "mk"; else g = "tf"; line[g] = line[g] sprintf("  \033[36m%-14s\033[0m %s\n", n, d); if (x != "") line[g] = line[g] sprintf("  %-14s \033[2me.g. %s\033[0m\n", "", x) } END { print "General:"; printf "%s", line["gen"]; print "\nOpenTofu, from infra/tf/:"; printf "%s", line["tf"]; print "\nOKE:"; printf "%s", line["oke"]; print "\nminikube:"; printf "%s", line["mk"] }' $(firstword $(MAKEFILE_LIST))
 
 # ---------------------------------------------------------------- OpenTofu
 
@@ -188,7 +188,7 @@ oke-up: check-oci check-tfvars check-registry check-letsencrypt ## Create the cl
 		[ -n "$$reserved" ] || echo "That is an ephemeral address: it changes on the next oke-up."; \
 	fi
 
-oke-deploy: check-registry check-host ## Apply the manifests and wait for the app
+oke-deploy: check-registry check-host ## Apply the manifests and wait for the app @ make oke-deploy OCIR_IMAGE=eu-milan-1.ocir.io/<namespace>/dinner-roulette:1.1.0
 	kubectl --context oke create namespace dinner --dry-run=client -o yaml | kubectl --context oke apply -f -
 	$(MAKE) registry-secret
 	$(MAKE) cnpg CONTEXT=oke
@@ -199,7 +199,7 @@ oke-deploy: check-registry check-host ## Apply the manifests and wait for the ap
 	kubectl --context oke -n dinner rollout status deploy/app --timeout=300s
 
 # Builds for the architecture of the local Docker daemon. E3/E4 nodes are amd64, A1.Flex is arm64.
-oke-push: check-registry ## Build the app image and push it to OCIR
+oke-push: check-registry ## Build the app image and push it to OCIR @ make oke-push OCIR_IMAGE=eu-milan-1.ocir.io/<namespace>/dinner-roulette:1.1.0
 	@printf '%s' "$$OCIR_AUTH_TOKEN" | docker login "$(OCIR_SERVER)" -u "$(OCIR_USERNAME)" --password-stdin
 	docker build --build-arg COMMIT_SHA="$$(git -C .. rev-parse --short=7 HEAD)" -t "$(OCIR_IMAGE)" ..
 	docker push "$(OCIR_IMAGE)"
@@ -217,7 +217,7 @@ oke-smoke: check-host ## Hit /suggestion over HTTPS
 	curl -sf https://$(HOST)/suggestion; echo
 
 # Rewrites the generated tfvars, so a later `oke-up` cannot silently revert the old CIDR.
-oke-cidr: check-oci check-host ## Update the allowed source IP: make oke-cidr CIDR=1.2.3.4/32
+oke-cidr: check-oci check-host ## Update the allowed source IP and apply @ make oke-cidr CIDR=1.2.3.4/32
 	@test -n "$(CIDR)" || { echo "Usage: make oke-cidr CIDR=x.x.x.x/32"; exit 1; }
 	@case "$(CIDR)" in */*) ;; *) echo "CIDR must be a block, e.g. 1.2.3.4/32"; exit 1 ;; esac
 	@test -f $(AUTO_TFVARS) || $(MAKE) --no-print-directory oke-tfvars

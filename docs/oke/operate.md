@@ -50,7 +50,7 @@ What happens, push by push:
 2. Merging the release PR creates the GitHub Release and the tag `v1.1.0`. The `publish` job checks out that commit and pushes `dinner-roulette:1.1.0`.
 3. A push that is not a conventional commit, or that only updates the open release PR, leaves `release_created` false. The `publish` job is skipped.
 
-`1.0.0` in `.release-please-manifest.json` is the last released version, matching `package.json`. The next release PR starts from the conventional commits after that. The repository setting **Allow GitHub Actions to create and approve pull requests** must be on, otherwise release-please cannot open the PR.
+`1.1.0` in `.release-please-manifest.json` is the last released version, matching `package.json`. The next release PR starts from the conventional commits after that, so the number in this paragraph goes stale by design: the manifest is the one to read. The repository setting **Allow GitHub Actions to create and approve pull requests** must be on, otherwise release-please cannot open the PR.
 
 Deploying the release is the local step:
 
