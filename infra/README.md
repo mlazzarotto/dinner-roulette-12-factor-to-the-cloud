@@ -69,6 +69,4 @@ Port 80 is closed: cert-manager issues TLS through Cloudflare DNS-01, so the LB 
 
 ## Secrets
 
-Nothing secret is committed. `.secrets.env` is ignored. The database password exists only in the cluster: `kubectl -n dinner get secret db-app -o jsonpath='{.data.password}' | base64 -d`. CI reads secrets `OCIR_AUTH_TOKEN`, `OCIR_USERNAME`, `KUBECONFIG_B64` and variables `OCIR_REGION`, `OCIR_NAMESPACE`, and deploys with the same `make oke-deploy` target.
-
-`KUBECONFIG_B64` expires 24h after each `oke-up`.
+Nothing secret is committed. `.secrets.env` is ignored. The database password exists only in the cluster: `kubectl -n dinner get secret db-app -o jsonpath='{.data.password}' | base64 -d`. CI reads secrets `OCIR_AUTH_TOKEN`, `OCIR_USERNAME` and variables `OCIR_REGION`, `OCIR_NAMESPACE`. It only pushes images: the cluster is reachable only from `allowed_source_cidr`, so deploying is a local `make oke-deploy`.

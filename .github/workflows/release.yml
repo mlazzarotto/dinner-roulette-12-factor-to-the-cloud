@@ -1,10 +1,14 @@
 name: release
 
 # Every push to main: release-please opens or updates a release PR from
-# conventional commits (feat, fix). Merging that PR creates the GitHub Release.
-# The publish job then pushes dinner-roulette:<version> and deploys that tag.
+# conventional commits (feat, fix). Merging that PR creates the GitHub Release
+# and the publish job pushes dinner-roulette:<version>.
 # It has to live in this workflow: the token that creates the release does not
 # start the other workflows.
+#
+# CI stops at the registry on purpose. The API endpoint accepts 6443 only from
+# allowed_source_cidr, so a GitHub-hosted runner cannot reach the cluster.
+# Deploying is a local step: make oke-deploy OCIR_IMAGE=...:<version>.
 on:
   push:
     branches: [main]
@@ -51,22 +55,3 @@ jobs:
           docker buildx build --platform linux/amd64,linux/arm64 \
             --build-arg COMMIT_SHA="$(git rev-parse --short=7 HEAD)" \
             -t "$IMAGE:$VERSION" --push .
-
-      # KUBECONFIG_B64 is a repository secret and expires 24h after `make oke-up`.
-      - name: Configure kubectl
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config
-
-      # Same path as a local deploy. The tag is the release version, so the
-      # manifest string changes and Kubernetes rolls the app out. OCIR_IMAGE goes
-      # as a make argument, not in the environment: infra/.secrets.env is
-      # included with `-include`, so it wins over the environment.
-      - name: Deploy this version
-        env:
-          TF_VAR_region: ${{ vars.OCIR_REGION }}
-          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
-          OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
-          HOST: ${{ vars.HOST }}
-        run: make -C infra oke-deploy OCIR_IMAGE="${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette:${{ needs.release-please.outputs.version }}"

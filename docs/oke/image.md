@@ -29,13 +29,12 @@ What it does:
 
 ### Configure the repository on GitHub
 
-The workflow reads three repository **variables** and two **secrets**. The `deploy` workflow additionally reads `HOST`:
+The workflows read two repository **variables** and two **secrets**. `HOST` is a local setting now that nothing deploys from CI; it lives in `infra/.secrets.env`.
 
 | Name | Kind | Value |
 |---|---|---|
 | `OCIR_REGION` | variable | Region identifier, e.g. `eu-milan-1` |
 | `OCIR_NAMESPACE` | variable | Your tenancy's Object Storage namespace |
-| `HOST` | variable | The host name you serve, used by `deploy` |
 | `OCIR_USERNAME` | secret | `<tenancy-namespace>/<username>` |
 | `OCIR_AUTH_TOKEN` | secret | The auth token from step 1.5 |
 
@@ -44,7 +43,6 @@ Set them in **Settings → Secrets and variables → Actions**, or with the GitH
 ```bash
 gh variable set OCIR_REGION    --body eu-milan-1
 gh variable set OCIR_NAMESPACE --body <tenancy-namespace>
-gh variable set HOST           --body dinner.example.com
 gh secret   set OCIR_USERNAME  --body '<tenancy-namespace>/<username>'
 gh secret   set OCIR_AUTH_TOKEN          # prompts for the value, so it stays out of your shell history
 ```
