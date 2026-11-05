@@ -183,7 +183,7 @@ export const pageHtml = `<!doctype html>
   <main>
     <header>
       <p class="eyebrow">Dinner Roulette</p>
-      <h1>Dove si cena stasera?</h1>
+      <h1>Dove mangiamo stasera?</h1>
       <p>Vota un ristorante e lascia che l'app scelga il pi&ugrave; votato per te. Le chiamate qui sotto sono pronte da copiare.</p>
       <span class="base">base url <code id="base-url"></code></span>
     </header>
