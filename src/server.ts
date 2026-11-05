@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import { v4 as uuid } from "uuid";
 import { Pool } from "pg";
+import { pageHtml } from "./ui";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // Idle clients emit here when Postgres restarts or fails over; without a listener Node exits.
@@ -61,6 +62,10 @@ export function startApp(
   app.use((req, _res, next) => {
     log(`[${uuid()}] ${req.method} ${req.url}`);
     next();
+  });
+
+  app.get("/", (_req, res) => {
+    res.type("html").send(pageHtml);
   });
 
   app.post("/votes", async (req, res) => {

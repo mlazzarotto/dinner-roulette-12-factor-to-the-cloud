@@ -42,6 +42,14 @@ test("GET /suggestion restituisce il ristorante più votato", async () => {
   assert.equal(res.body.restaurant.id, "sakura");
 });
 
+test("GET / serve la pagina con gli esempi degli endpoint", async () => {
+  const res = await request(app).get("/");
+  assert.equal(res.status, 200);
+  assert.match(res.headers["content-type"], /text\/html/);
+  assert.ok(res.text.includes("/suggestion"));
+  assert.ok(res.text.includes("window.location.origin"));
+});
+
 test("GET /health risponde ok", async () => {
   const res = await request(app).get("/health");
   assert.equal(res.status, 200);
