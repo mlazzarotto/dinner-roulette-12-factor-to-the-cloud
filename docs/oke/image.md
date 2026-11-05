@@ -63,6 +63,22 @@ gh run watch                        # follow the run live
 
 Or on GitHub: **Actions → build → Run workflow**, branch `main`. The workflow file and the code used are the ones on `main`, not your local changes.
 
+Every image `build` pushes also lands under its full commit SHA, so `:<sha>` and `:latest` always point at the same build.
+
+### Releases: why deploy by tag
+
+There is a second workflow, `release`, driven by release-please. It reads the conventional commit messages on `main`, keeps a PR open with the next version (`chore(main): release 1.1.0`), and when you merge that PR it creates the tag `v1.1.0` and pushes `dinner-roulette:1.1.0` to OCIR. The version is never written by hand; see [step 6](operate.md#with-a-release-please-version).
+
+That tag is what you deploy when you want a known version rather than whatever `:latest` happens to be:
+
+```bash
+make oke-deploy OCIR_IMAGE="<region>.ocir.io/<tenancy-namespace>/dinner-roulette:1.1.0"
+```
+
+The image reference is always `<registry-host>/<namespace>/<repository>:<tag>`. Leave `OCIR_IMAGE` out and the target derives it from `OCIR_USERNAME` and your region, with the tag `latest`. Passing it is only about the tag, since the path is derived either way.
+
+Nothing in CI deploys: the Kubernetes API accepts 6443 only from `allowed_source_cidr`, so a GitHub-hosted runner cannot reach the cluster.
+
 ## Option B: from your machine with `make oke-push`
 
 ```bash

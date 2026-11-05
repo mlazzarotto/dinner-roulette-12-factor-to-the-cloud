@@ -18,7 +18,7 @@ This repository is the support material for **Cloud Native Trento #7: From Code 
 - **Speakers:** [Alessandro Peretti](https://www.linkedin.com/in/alessandro-peretti/) and [Marco Lazzarotto](https://www.linkedin.com/in/marco-lazzarotto/)
 - **Part I of the series:** [Coding Dojo: 12-factor App](https://luma.com/mng6wf99), where the app was built
 
-Part I took a real application and applied the 12 factors to it: configuration in the environment, explicit dependencies, no state in the process, a database behind a URL. Part II takes the result to the cloud: deploying to Kubernetes, mapping the build, release and run stages onto manifests, ConfigMaps and Secrets, managing image versions, and moving the app from commit to cluster with GitHub Actions.
+Part I took a real application and applied the 12 factors to it: configuration in the environment, explicit dependencies, no state in the process, a database behind a URL. Part II takes the result to the cloud: deploying to Kubernetes, mapping the build, release and run stages onto manifests, ConfigMaps and Secrets, and managing image versions so that every release reaches the registry as an immutable tag. The cluster is reachable only from your own IP, so CI publishes and you deploy.
 
 > [!IMPORTANT]
 > Coming to the workshop? Prepare your laptop before the session:
@@ -74,7 +74,7 @@ The entry points in `infra/Makefile`:
 | `mk-up`, `mk-deploy`, `mk-smoke` | Start minikube, deploy the stack, hit `/suggestion` |
 | `mk-status`, `mk-env`, `mk-down` | Inspect the namespace, export the kubeconfig context, delete the workloads |
 | `oke-up` | OpenTofu, kubeconfig, cert-manager, ingress-nginx, deploy. About 20 minutes from nothing |
-| `oke-deploy` | Manifests only: namespace, pull secret, database, app |
+| `oke-deploy` | Manifests only: namespace, pull secret, database, app. Add `OCIR_IMAGE=<registry>/<namespace>/dinner-roulette:<tag>` to roll out a specific tag instead of `:latest` |
 | `oke-push` | Build the image and push it to the Oracle registry |
 | `oke-status`, `oke-env`, `oke-smoke` | Inspect, export the context, hit the public URL |
 | `oke-cidr CIDR=1.2.3.4/32` | Update the allowed source IP and apply |

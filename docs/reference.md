@@ -18,7 +18,7 @@ Run from `infra/`, or with `make -C infra <target>` from the repository root. `m
 | Target | What it does |
 |---|---|
 | `oke-up` | OpenTofu, kubeconfig, cert-manager, ingress-nginx, ClusterIssuer, then `oke-deploy`. About 20 minutes from nothing |
-| `oke-deploy` | Namespace, `ocir` Secret, CNPG operator, `db-init`, OKE overlay with your image, rollout wait |
+| `oke-deploy` | Namespace, `ocir` Secret, CNPG operator, `db-init`, OKE overlay with your image, rollout wait. Accepts `OCIR_IMAGE=<registry>/<namespace>/dinner-roulette:<tag>` to deploy a pinned tag instead of `:latest`, for example `make oke-deploy OCIR_IMAGE="eu-milan-1.ocir.io/<tenancy-namespace>/dinner-roulette:1.1.0"` |
 | `oke-push` | `docker login`, build for the local architecture, and push to `OCIR_IMAGE` |
 | `oke-status` | Pods, Services, Ingress, PVCs and certificates in `dinner` |
 | `oke-env` | Prints the `KUBECONFIG` export and `use-context oke`. Use as `eval "$(make oke-env)"` |
