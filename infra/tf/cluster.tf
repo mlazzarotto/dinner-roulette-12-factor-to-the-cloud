@@ -1,5 +1,5 @@
 resource "oci_containerengine_cluster" "main" {
-  compartment_id     = var.compartment_ocid
+  compartment_id     = local.compartment_id
   kubernetes_version = var.k8s_version
   name               = "dinner-roulette"
   vcn_id             = oci_core_vcn.main.id
@@ -25,16 +25,21 @@ resource "oci_containerengine_cluster" "main" {
 }
 
 resource "oci_containerengine_node_pool" "main" {
-  compartment_id     = var.compartment_ocid
+  compartment_id     = local.compartment_id
   cluster_id         = oci_containerengine_cluster.main.id
   kubernetes_version = var.k8s_version
   name               = "dinner-nodes"
 
   node_shape = var.node_shape
 
-  node_shape_config {
-    ocpus         = var.node_ocpus
-    memory_in_gbs = var.node_memory_gbs
+  # node_shape_config only exists for Flex shapes. Sending it for a fixed shape is rejected
+  # by the API, so it is emitted only when the shape is flexible.
+  dynamic "node_shape_config" {
+    for_each = can(regex("Flex$", var.node_shape)) ? [1] : []
+    content {
+      ocpus         = var.node_ocpus
+      memory_in_gbs = var.node_memory_gbs
+    }
   }
 
   node_source_details {
@@ -68,7 +73,7 @@ resource "oci_containerengine_node_pool" "main" {
 # the node architecture (A1.Flex is aarch64, E4.Flex is x86_64).
 data "oci_containerengine_node_pool_option" "main" {
   node_pool_option_id = oci_containerengine_cluster.main.id
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_id
 }
 
 locals {

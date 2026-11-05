@@ -106,4 +106,4 @@ Both environments share `infra/k8s/base`. The differences live in small overlays
 ```
 
 !!! info "About the example values"
-    The repository is currently configured for the domain `dinner.alessandroperetti.dev` in the `eu-milan-1` region. This guide uses placeholders such as `dinner.example.com`, `203.0.113.10` and `<tenancy-namespace>`, and tells you exactly which files to change for your own account and domain.
+    The repository is not configured for any particular account. The tenancy, the region, the compartment, the Object Storage namespace, your public IP and the reserved IP are all read from your OCI profile or found by `make oke-tfvars`; the host name comes from `HOST` in `infra/.secrets.env`. This guide uses placeholders such as `dinner.example.com`, `203.0.113.10` and `<tenancy-namespace>`, and the only values you paste by hand are the five in [step 3](oke/configure.md#31-create-infrasecretsenv).

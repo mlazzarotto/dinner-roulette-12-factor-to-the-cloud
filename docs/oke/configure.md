@@ -1,6 +1,6 @@
 # Step 3: Configure the repository
 
-At the end of this step, the repository describes your account: secrets in `infra/.secrets.env` (never committed), non-secret settings in `infra/tf/prod.tfvars`, and `make plan` shows what OpenTofu is about to create.
+At the end of this step, `infra/.secrets.env` holds the few values OCI will not give you, the rest is derived from your account, and `make plan` shows what OpenTofu is about to create.
 
 **Time:** 10 minutes.
 
@@ -8,9 +8,11 @@ At the end of this step, the repository describes your account: secrets in `infr
 
 ```bash
 cd infra
-cp .secrets.example .secrets.env
-${EDITOR:-nano} .secrets.env
+make oke-secrets      # copies .secrets.example, never overwrites an existing file
+make oke-bootstrap    # prints the values you need, and where to get them
 ```
+
+`make oke-bootstrap` reads your OCI profile and prints your tenancy, user, region and Object Storage namespace, then lists the two pages where only the Console can create a token.
 
 This is the template you start from:
 
@@ -18,23 +20,38 @@ This is the template you start from:
 --8<-- "infra/.secrets.example"
 ```
 
-Fill in every value:
+Fill in these values:
 
 | Variable | Used by | Value | From |
 |---|---|---|---|
-| `TF_VAR_tenancy_ocid` | OpenTofu (`apply`, `oke-up`, `oke-cidr`, `oke-down`) | Your tenancy OCID | [1.2](oci-account.md#12-collect-your-identifiers) |
-| `TF_VAR_ssh_public_key` | OpenTofu, optional | The content of e.g. `~/.ssh/id_ed25519.pub`, **without quotes** | Your machine |
+| `HOST` | `oke-deploy`, `oke-smoke` | The host name you serve, e.g. `dinner.example.com` | [2.6](dns-tls.md#26-use-your-hostname-in-the-repository) |
 | `ACME_EMAIL` | `oke-up` | A real email address | [2.4](dns-tls.md#24-choose-the-acme-email) |
 | `CLOUDFLARE_API_TOKEN` | `oke-up` | The Cloudflare token | [2.3](dns-tls.md#23-create-the-cloudflare-api-token) |
 | `OCIR_USERNAME` | `oke-push`, `oke-deploy` | `<tenancy-namespace>/<username>` | [1.6](oci-account.md#16-work-out-your-registry-host-and-username) |
 | `OCIR_AUTH_TOKEN` | `oke-push`, `oke-deploy` | The OCI auth token | [1.5](oci-account.md#15-generate-an-auth-token-for-the-registry) |
-| `OCIR_IMAGE` | `oke-push`, `oke-deploy` | `<region>.ocir.io/<tenancy-namespace>/dinner-roulette:latest` | [1.6](oci-account.md#16-work-out-your-registry-host-and-username) |
+| `TF_VAR_ssh_public_key` | OpenTofu, optional | The content of e.g. `~/.ssh/id_ed25519.pub`, **without quotes** | Your machine |
+
+Five values. Everything else comes from your account.
+
+### What you no longer have to paste
+
+| Value | Where it now comes from |
+|---|---|
+| Tenancy OCID | `tenancy=` in `~/.oci/config`, read by `make` |
+| Region | `region=` in `~/.oci/config` |
+| Compartment | The tenancy (root compartment). Set `compartment_ocid` only if you use another one |
+| Object Storage namespace | `oci os ns get`, through the `oci_objectstorage_namespace` data source |
+| `OCIR_IMAGE` | Derived from `OCIR_USERNAME`: `<region>.ocir.io/<namespace>/dinner-roulette:latest` |
+| Your public IP (`allowed_source_cidr`) | `make oke-tfvars`, from `checkip.amazonaws.com` |
+| Reserved IP OCID | `make oke-tfvars`, from the reserved IP named `dinner-lb` |
+
+The tenancy OCID is the one thing OpenTofu cannot look up: `oci_identity_tenancy` requires `tenancy_id` and the provider does not expose its own. `make` reads it from the OCI profile instead.
 
 Notes on individual values:
 
-- **`TF_VAR_` prefix.** OpenTofu automatically maps an environment variable `TF_VAR_<name>` to the input variable `<name>`. That is how the tenancy OCID and the SSH key reach OpenTofu without being written in `prod.tfvars`.
+- **`TF_VAR_` prefix.** OpenTofu automatically maps an environment variable `TF_VAR_<name>` to the input variable `<name>`. `.secrets.env` is exported by the `Makefile`, so any `TF_VAR_*` line reaches OpenTofu. That is also how you override a default such as `node_shape`.
 - **SSH key.** It is registered on the worker node, but the node lives in a private subnet without a public IP, so you would need a bastion to use it. If you do not need it, **delete the line or comment it out**. Leaving the placeholder `ssh-ed25519 AAAA... you@laptop` in place makes OKE reject the node pool.
-- **`OCIR_IMAGE`** includes the tag. The registry host in it must match the region you push to. `make` derives the registry server for `docker login` and for the pull Secret from the first part of this value.
+- **`OCIR_IMAGE` is optional.** Set it only to deploy a tag other than `:latest`. Leave it out and `make` builds it from `OCIR_USERNAME` and the region, so the registry host and the credentials cannot drift apart.
 
 ### How `make` reads the file
 
@@ -63,43 +80,52 @@ Two characters have a meaning for make:
 OCI auth tokens are random strings and can contain both. Escape them in `.secrets.env`, writing `\#` for `#` and `$$` for `$`, or generate a new token without them. To check what make actually sees, compare the length it prints with the length of your token:
 
 ```bash
-make --eval 'token-length: ; @printf %s "$$OCIR_AUTH_TOKEN" | wc -c' token-length
+make -f Makefile -f - token-length <<'EOF'
+token-length:
+	@printf %s "$$OCIR_AUTH_TOKEN" | wc -c
+EOF
 ```
 
-## 3.2 Edit `infra/tf/prod.tfvars`
+!!! note "Why `-f Makefile -f -`"
+    `make --eval` does not exist in GNU make 3.81, which is what macOS ships. Reading a second makefile from stdin works everywhere. The first `-f` is needed so `.secrets.env` is still included.
 
-`prod.tfvars` holds the non-secret settings and is committed. Replace the values with yours:
+## 3.2 Run `make oke-tfvars`
 
-```hcl title="infra/tf/prod.tfvars"
-# Non-secret values only. tenancy_ocid, the SSH key and the registry credentials come from
-# infra/.secrets.env as TF_VAR_* and plain vars.
-region           = "eu-milan-1"
-compartment_ocid = "ocid1.tenancy.oc1..aaaa…"    # the tenancy OCID for the root compartment
+There is no `prod.tfvars` to edit. The values that describe *your* account are found, not typed:
 
-# Reserved IP created in step 1.7: its OCID, not its address
-lb_reserved_ip_ocid = "ocid1.publicip.oc1.eu-milan-1.amaaaa…"
+```bash
+make oke-tfvars
+```
 
-# The only block that reaches the API endpoint and the load balancer
+It writes `infra/tf/workshop.auto.tfvars`, which OpenTofu loads automatically because of the `.auto.tfvars` suffix. It is git-ignored and safe to delete; run it again whenever your public IP changes.
+
+```hcl title="infra/tf/workshop.auto.tfvars (generated)"
+region              = "eu-milan-1"
 allowed_source_cidr = "203.0.113.25/32"
+lb_reserved_ip_ocid = "ocid1.publicip.oc1.eu-milan-1.amaaaa…"
+```
 
-# Worker node, see "Choose the node shape" below
-node_shape      = "VM.Standard.A1.Flex"
-node_ocpus      = 2
-node_memory_gbs = 12
+| Value | How it is found |
+|---|---|
+| `region` | `region=` in `~/.oci/config` |
+| `allowed_source_cidr` | `https://checkip.amazonaws.com`, plus `/32` |
+| `lb_reserved_ip_ocid` | The `RESERVED` public IP named `dinner-lb`, or omitted if there is none |
 
-# Uncomment if the default is no longer offered by OKE (see step 1.9)
-# k8s_version = "v1.34.10"
+If no reserved IP is found, `oke-up` still works: the load balancer gets an ephemeral address and `oke-up` prints it at the end so you can point the A record at it. That address changes on every `oke-up`, so create one when you are past experimenting:
+
+```bash
+oci network public-ip create --lifetime RESERVED --display-name dinner-lb
 ```
 
 All the input variables, from `infra/tf/variables.tf`:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `region` | none, required | OCI region identifier, such as `eu-milan-1` |
-| `tenancy_ocid` | none, from `TF_VAR_tenancy_ocid` | Used to look up the availability domains |
-| `compartment_ocid` | none, required | Compartment for every resource |
-| `lb_reserved_ip_ocid` | none, required | OCID of the reserved public IP |
-| `allowed_source_cidr` | none, required | The only source allowed on 6443 and 443 |
+| `region` | from `~/.oci/config` | OCI region identifier, such as `eu-milan-1` |
+| `tenancy_ocid` | from `~/.oci/config` | Used to look up the availability domains |
+| `compartment_ocid` | the tenancy | Compartment for every resource |
+| `lb_reserved_ip_ocid` | found by `oke-tfvars` | OCID of the reserved public IP |
+| `allowed_source_cidr` | found by `oke-tfvars` | The only source allowed on 6443 and 443 |
 | `k8s_version` | `v1.34.10` | Version of the control plane and the node pool |
 | `node_shape` | `VM.Standard.A1.Flex` | Compute shape of the worker node |
 | `node_ocpus` | `2` | OCPUs of the worker node |
@@ -129,16 +155,12 @@ All the input variables, from `infra/tf/variables.tf`:
 
 ### If you use another region
 
-The repository assumes Milan (`eu-milan-1`). For another region, change it in all of these places:
+The repository is region-agnostic now. Everything follows `region=` in `~/.oci/config`:
 
-1. `region` in `infra/tf/prod.tfvars`.
-2. The host in `OCIR_IMAGE`, in `infra/.secrets.env`, and the `OCIR_REGION` repository variable for CI.
-3. The reserved IP, which belongs to one region: create a new one there.
-4. **`infra/tf/network.tf`**: the private route table sends Oracle services traffic to `all-lin-services-in-oracle-services-network`, and `lin` is Milan's region key. Replace `lin` with your region's key, in lower case, or use the value the code already looks up, `data.oci_core_services.all.services[0].cidr_block`, which works in every region. To find a region's key:
-
-    ```bash
-    oci iam region list --query "data[?name=='eu-frankfurt-1'].key" --raw-output    # FRA
-    ```
+1. **Nothing to change in the OpenTofu files.** The service gateway route uses `data.oci_core_services.all.services[0].cidr_block` instead of a region key such as `all-lin-services-…`, so it resolves in every region.
+2. **The reserved IP belongs to one region.** Run `make oke-tfvars` in the new region, or create one there first with `oci network public-ip create --lifetime RESERVED --display-name dinner-lb`. Without it you get an ephemeral address.
+3. **The OCIR host follows the region.** `OCIR_IMAGE` is derived from the region, so nothing to edit. If you set it by hand, update the host.
+4. **CI needs the matching variables.** Set `OCIR_REGION`, `OCIR_NAMESPACE` and `HOST` as repository variables ([step 4](image.md#configure-the-repository-on-github)).
 
 Remember that Always Free A1 capacity is available only in your home region.
 
@@ -149,7 +171,7 @@ make init     # downloads the OCI provider, pinned by .terraform.lock.hcl
 make plan
 ```
 
-`init` creates `infra/tf/.terraform/`. `plan` reads `prod.tfvars` plus the `TF_VAR_*` values and prints what would be created, without changing anything. On an empty compartment it ends with:
+`init` creates `infra/tf/.terraform/`. `plan` reads `workshop.auto.tfvars`, the `TF_VAR_*` values and the defaults in `variables.tf`, then prints what would be created without changing anything. On an empty compartment it ends with:
 
 ```text
 Plan: 25 to add, 0 to change, 0 to destroy.
@@ -158,7 +180,7 @@ Plan: 25 to add, 0 to change, 0 to destroy.
 That is 12 network resources (VCN, three gateways, two route tables, two subnets, one security list, three NSGs), 11 NSG rules, the cluster and the node pool. Values such as the node image show as `(known after apply)`, because they depend on the cluster that does not exist yet.
 
 !!! note
-    `make plan` does not check `.secrets.env` first. If `TF_VAR_tenancy_ocid` is missing, OpenTofu prompts for `var.tenancy_ocid` interactively. Press ++ctrl+c++ and fix the file.
+    `make plan` checks `workshop.auto.tfvars` and `HOST` first, and tells you what to run if either is missing. If OpenTofu prompts for a variable, you ran `tofu` directly instead of `make`.
 
 !!! danger "The state file is precious"
     OpenTofu records what it created in `infra/tf/terraform.tfstate`, on your laptop. The file is git-ignored and blocked by the pre-commit hook, because it contains resource details. Without it, `make oke-down` cannot destroy anything, and you would have to delete the cluster and the network by hand in the Console. Back it up if you switch machines.
@@ -166,8 +188,8 @@ That is 12 network resources (VCN, three gateways, two route tables, two subnets
 ## Checklist
 
 - [x] `infra/.secrets.env` filled, with no quotes and no placeholder left
-- [x] `infra/tf/prod.tfvars` with your region, compartment, reserved IP OCID, source CIDR and shape
-- [x] the region-specific bits changed if you are not in Milan
+- [x] `make oke-tfvars` ran, so `infra/tf/workshop.auto.tfvars` exists
+- [x] `make oke-bootstrap` shows your tenancy and namespace
 - [x] `make plan` ends with `Plan: 25 to add`
 
 Next: [Step 4: Publish the image](image.md).

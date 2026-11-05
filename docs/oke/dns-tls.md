@@ -138,30 +138,29 @@ cert-manager renews the certificate automatically about 30 days before it expire
 
 ## 2.6 Use your hostname in the repository
 
-The repository is configured for `dinner.alessandroperetti.dev`. Replace it with your host name in two files:
+Set `HOST` in `infra/.secrets.env` to the host name you created the A record for:
 
-| File | Where |
-|---|---|
-| `infra/k8s/overlays/oke/ingress.yaml` | `tls[0].hosts` and `rules[0].host` |
-| `infra/Makefile` | The `Ready:` message at the end of `oke-up`, and the URL in `oke-smoke` |
+```bash title="infra/.secrets.env"
+HOST=dinner.example.com
+```
 
-Find and replace from the repository root:
+That is the only place it goes. `make oke-deploy` substitutes it into the Ingress in place of the `__HOST__` placeholder, the same way it fills `__OCIR_IMAGE__`:
 
-=== "Linux"
+!!! note "The placeholder is rejected on purpose"
+    `check-host` refuses a `HOST` ending in `example.com`, `example.org` or `example.net`, so the template value cannot reach a deploy and fail later at the DNS-01 challenge with a confusing error.
 
-    ```bash
-    grep -rln 'dinner\.alessandroperetti\.dev' infra/ | xargs sed -i 's/dinner\.alessandroperetti\.dev/dinner.example.com/g'
-    grep -rn 'dinner.example.com' infra/
-    ```
+```yaml title="infra/k8s/overlays/oke/ingress.yaml"
+tls:
+  - hosts: [__HOST__]
+    secretName: dinner-tls
+rules:
+  - host: __HOST__
+```
 
-=== "macOS"
+`make oke-up` uses the same value for the `Ready: https://…` line, and `make oke-smoke` for the URL it curls. Nothing else in the repository mentions a host name, so there is no find-and-replace step.
 
-    ```bash
-    grep -rln 'dinner\.alessandroperetti\.dev' infra/ | xargs sed -i '' 's/dinner\.alessandroperetti\.dev/dinner.example.com/g'
-    grep -rn 'dinner.example.com' infra/
-    ```
-
-The second command should list two lines in the Ingress and two in the `Makefile`, plus comments in `infra/README.md` and `infra/.secrets.example`, which the replacement updates as well.
+!!! tip "Why a placeholder instead of a plain value"
+    A committed literal would have to be searched and replaced by everyone who clones the repo, and that kind of `sed` tends to reach into `docs/` too. A placeholder that `make` fills in keeps the repository shareable.
 
 ## Checklist
 
@@ -169,6 +168,6 @@ The second command should list two lines in the Ingress and two in the `Makefile
 - [x] `dig +short A <host>` returns the reserved IP, with the record set to **DNS only**
 - [x] the Cloudflare token verifies and can see the zone
 - [x] a real `ACME_EMAIL`
-- [x] your host name in `ingress.yaml` and in the `Makefile`
+- [x] `HOST` set in `infra/.secrets.env`
 
 Next: [Step 3: Configure the repository](configure.md).

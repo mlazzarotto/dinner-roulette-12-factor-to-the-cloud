@@ -44,11 +44,13 @@ jobs:
 
       # Version without the leading "v". The registry path stays out of git.
       - name: Build and push the release tag
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
         run: |
           IMAGE="${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette"
           docker buildx build --platform linux/amd64,linux/arm64 \
             --build-arg COMMIT_SHA="$(git rev-parse --short=7 HEAD)" \
-            -t "$IMAGE:${{ needs.release-please.outputs.version }}" --push .
+            -t "$IMAGE:$VERSION" --push .
 
       # KUBECONFIG_B64 is a repository secret and expires 24h after `make oke-up`.
       - name: Configure kubectl
@@ -58,10 +60,13 @@ jobs:
           chmod 600 ~/.kube/config
 
       # Same path as a local deploy. The tag is the release version, so the
-      # manifest string changes and Kubernetes rolls the app out.
+      # manifest string changes and Kubernetes rolls the app out. OCIR_IMAGE goes
+      # as a make argument, not in the environment: infra/.secrets.env is
+      # included with `-include`, so it wins over the environment.
       - name: Deploy this version
         env:
-          OCIR_IMAGE: ${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette:${{ needs.release-please.outputs.version }}
+          TF_VAR_region: ${{ vars.OCIR_REGION }}
           OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
           OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
-        run: make -C infra oke-deploy
+          HOST: ${{ vars.HOST }}
+        run: make -C infra oke-deploy OCIR_IMAGE="${{ vars.OCIR_REGION }}.ocir.io/${{ vars.OCIR_NAMESPACE }}/dinner-roulette:${{ needs.release-please.outputs.version }}"

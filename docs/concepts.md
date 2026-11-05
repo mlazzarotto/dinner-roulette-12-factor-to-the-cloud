@@ -33,7 +33,7 @@ The key parts, top to bottom:
 :   Runs `pg_isready` against `db-rw` every two seconds until PostgreSQL accepts connections, and only then lets the app container start. Without it the app would start before the database is ready, and its first query would fail. The `postgres:17` image is used only because it ships the `pg_isready` binary.
 
 `image: __OCIR_IMAGE__`
-:   A placeholder, not a real image. Each environment replaces it: the minikube overlay with `dinner-roulette:local`, `make oke-deploy` with the value of `OCIR_IMAGE` (for example `eu-milan-1.ocir.io/<tenancy-namespace>/dinner-roulette:latest`). Registry and namespace differ per Oracle account, so they stay out of git.
+:   A placeholder, not a real image. Each environment replaces it: the minikube overlay with `dinner-roulette:local`, `make oke-deploy` with the reference it derives from `OCIR_USERNAME` and your region (for example `eu-milan-1.ocir.io/<tenancy-namespace>/dinner-roulette:latest`). Registry and namespace differ per Oracle account, so they stay out of git.
 
 `imagePullPolicy: Always`
 :   With a moving tag such as `:latest`, kubelet checks the registry every time a pod starts, so a restarted pod gets the newest image. The minikube overlay switches this to `Never`.
@@ -121,7 +121,7 @@ infra/k8s/
     --8<-- "infra/k8s/overlays/oke/ingress.yaml"
     ```
 
-    The OKE overlay leaves the placeholder in place. `make oke-deploy` replaces it with `sed`, using the `OCIR_IMAGE` variable from `infra/.secrets.env` (or from the CI environment). That keeps the registry path of your tenancy out of git.
+    The OKE overlay leaves the placeholders in place. `make oke-deploy` replaces them with `sed`: `__OCIR_IMAGE__` with the image reference it derives from `OCIR_USERNAME` and the region, `__HOST__` with `HOST` from `infra/.secrets.env`. That keeps the registry path of your tenancy and your host name out of git.
 
 You can see exactly what each environment receives, without touching any cluster:
 
